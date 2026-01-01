@@ -563,8 +563,6 @@ struct CIDRManagementView: View {
             .sheet(isPresented: $isShowingEditor) {
                 CIDREditView(fullText: $newCIDRText) { savedText in
                     if let index = editingIndex {
-                        // 解决 Issue: 复杂的重复项检查
-                        // 检查是否存在除了当前编辑项以外的其他项与新值重复
                         let isDuplicate = proxyCIDRs.enumerated().contains {
                             $0.offset != index && $0.element == savedText
                         }
@@ -572,7 +570,6 @@ struct CIDRManagementView: View {
                             proxyCIDRs[index] = savedText
                         }
                     } else {
-                        // 新增时的重复检查
                         if !proxyCIDRs.contains(savedText) {
                             proxyCIDRs.append(savedText)
                         }
