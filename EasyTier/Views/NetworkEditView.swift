@@ -4,8 +4,8 @@ struct NetworkEditView: View {
     @Binding var profile: NetworkProfile
     @State var sel = 0
     @State private var isShowingCIDRManagement = false
-    @State private var useCIDR = false 
-    
+    @State private var useCIDR = false
+
     var body: some View {
         Form {
             basicSettings
@@ -19,10 +19,12 @@ struct NetworkEditView: View {
             }
         }
         .sheet(isPresented: $isShowingCIDRManagement) {
-            CIDRManagementView(useCIDR: $useCIDR, proxyCIDRs: $profile.proxy_cidrs)
+            CIDRManagementView(
+                useCIDR: $useCIDR,
+                proxyCIDRs: $profile.proxy_cidrs
+            )
         }
     }
-
 
     private var basicSettings: some View {
         Group {
@@ -104,7 +106,7 @@ struct NetworkEditView: View {
                 case .standalone:
                     EmptyView()
                 }
-                
+
             }
         }
     }
@@ -209,7 +211,7 @@ struct NetworkEditView: View {
                     items: $profile.mapped_listeners
                 )
             }
-            
+
             Section("Routing") {
                 Button(action: {
                     useCIDR = !profile.proxy_cidrs.isEmpty
@@ -493,10 +495,10 @@ struct Advanced_Settings_Previews: PreviewProvider {
 
 struct CIDRManagementView: View {
     @Environment(\.dismiss) var dismiss
-    
-    @Binding var useCIDR: Bool          
+
+    @Binding var useCIDR: Bool
     @Binding var proxyCIDRs: [String]
-    
+
     @State private var editingIndex: Int? = nil
     @State private var isShowingEditor = false
     @State private var newCIDRText = ""
@@ -507,7 +509,12 @@ struct CIDRManagementView: View {
                 Section {
                     Toggle("Use CIDR", isOn: $useCIDR)
                 }
-                
+                .onChange(of: useCIDR) { newValue in
+                    if !newValue {
+                        proxyCIDRs.removeAll()
+                    }
+                }
+
                 if useCIDR {
                     Section("Saved CIDRs") {
                         Button(action: {
@@ -520,16 +527,19 @@ struct CIDRManagementView: View {
                                 Text("Add Proxy CIDR")
                             }
                         }
-                        
-                        ForEach(proxyCIDRs, id: \.self) { cidr in
+
+                        ForEach(Array(proxyCIDRs.enumerated()), id: \.element) {
+                            index,
+                            cidr in
                             Button(action: {
                                 newCIDRText = cidr
-                                editingIndex = proxyCIDRs.firstIndex(of: cidr)
+                                editingIndex = index
                                 isShowingEditor = true
                             }) {
                                 HStack {
-                                    Text(cidr)
-                                        .font(.system(.body, design: .monospaced))
+                                    Text(cidr).font(
+                                        .system(.body, design: .monospaced)
+                                    )
                                     Spacer()
                                     Image(systemName: "pencil.circle")
                                         .foregroundColor(.secondary)
@@ -553,8 +563,16 @@ struct CIDRManagementView: View {
             .sheet(isPresented: $isShowingEditor) {
                 CIDREditView(fullText: $newCIDRText) { savedText in
                     if let index = editingIndex {
-                        proxyCIDRs[index] = savedText
+                        // 解决 Issue: 复杂的重复项检查
+                        // 检查是否存在除了当前编辑项以外的其他项与新值重复
+                        let isDuplicate = proxyCIDRs.enumerated().contains {
+                            $0.offset != index && $0.element == savedText
+                        }
+                        if !isDuplicate {
+                            proxyCIDRs[index] = savedText
+                        }
                     } else {
+                        // 新增时的重复检查
                         if !proxyCIDRs.contains(savedText) {
                             proxyCIDRs.append(savedText)
                         }
@@ -591,27 +609,42 @@ struct CIDREditView: View {
                     HStack(spacing: 5) {
                         ForEach(0..<4) { index in
                             TextField("0", text: $octets[index])
-                                .focused($focusedField, equals: getField(for: index))
+                                .focused(
+                                    $focusedField,
+                                    equals: getField(for: index)
+                                )
                                 .keyboardType(.numberPad)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: .infinity)
-                                .onChange(of: octets[index]) { [oldValue = octets[index]] newValue in
-                                    handleIPInput(index: index, newValue: newValue, oldValue: oldValue)
+                                .onChange(of: octets[index]) {
+                                    [oldValue = octets[index]] newValue in
+                                    handleIPInput(
+                                        index: index,
+                                        newValue: newValue,
+                                        oldValue: oldValue
+                                    )
                                 }
-                            
-                            if index < 3 { Text(".").foregroundColor(.secondary) }
-                        }
-                        
-                        Text("/").foregroundColor(.secondary)
-                        
-                        TextField("24", value: $prefixLength, formatter: NumberFormatter())
-                            .focused($focusedField, equals: .prefix)
-                            .keyboardType(.numberPad)
-                            .frame(width: 45)
-                            .multilineTextAlignment(.center)
-                            .onChange(of: prefixLength) { val in
-                                if val > 32 { prefixLength = 32 }
+
+                            if index < 3 {
+                                Text(".").foregroundColor(.secondary)
                             }
+                        }
+
+                        Text("/").foregroundColor(.secondary)
+
+                        TextField(
+                            "24",
+                            value: $prefixLength,
+                            formatter: NumberFormatter()
+                        )
+                        .focused($focusedField, equals: .prefix)
+                        .keyboardType(.numberPad)
+                        .frame(width: 45)
+                        .multilineTextAlignment(.center)
+                        .onChange(of: prefixLength) { val in
+                            if val > 32 { prefixLength = 32 }
+                            if val < 0 { prefixLength = 0 }
+                        }
                     }
                 }
             }
@@ -620,41 +653,39 @@ struct CIDREditView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
-                
+
                 ToolbarItem(placement: .principal) {
                     Text(fullText.isEmpty ? "Add CIDR" : "Edit CIDR")
                         .font(.headline)
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        saveCIDR()
+                        validateAndSave()
                     }
                     .bold()
                 }
             }
-            .onAppear { parseCIDR(); focusedField = .octet1 }
+            .onAppear {
+                parseCIDR()
+                focusedField = .octet1
+            }
         }
     }
 
     private func handleIPInput(index: Int, newValue: String, oldValue: String) {
-        var filtered = newValue.filter { "0123456789".contains($0) }
-        
-        if let numericValue = Int(filtered), numericValue > 255 {
-            filtered = "255"
-        }
-
         if newValue.isEmpty && !oldValue.isEmpty {
-            if index > 0 {
-                focusedField = getField(for: index - 1)
-            }
+            if index > 0 { focusedField = getField(for: index - 1) }
             octets[index] = ""
             return
         }
 
-        if filtered != newValue {
-            octets[index] = filtered
+        var filtered = newValue.filter { "0123456789".contains($0) }
+        if let num = Int(filtered) {
+            if num > 255 { filtered = "255" }
         }
+
+        if filtered != newValue { octets[index] = filtered }
 
         if filtered.count >= 3 {
             if index < 3 {
@@ -667,28 +698,47 @@ struct CIDREditView: View {
 
     private func getField(for index: Int) -> Field {
         switch index {
-        case 0: return .octet1; case 1: return .octet2;
-        case 2: return .octet3; case 3: return .octet4; default: return .octet1
+        case 0: return .octet1
+        case 1: return .octet2
+        case 2: return .octet3
+        case 3: return .octet4
+        default: return .octet1
         }
     }
 
     private func parseCIDR() {
         guard !fullText.isEmpty else { return }
-        let mainParts = fullText.components(separatedBy: "/")
-        
-        let ipParts = mainParts[0].components(separatedBy: ".")
-        for i in 0..<min(ipParts.count, 4) {
-            octets[i] = ipParts[i]
+        let mainParts = fullText.split(separator: "/")
+
+        let ipParts = mainParts[0].split(separator: ".")
+        if ipParts.count == 4 {
+            for i in 0..<4 {
+                if let val = Int(ipParts[i]), (0...255).contains(val) {
+                    octets[i] = String(val)
+                }
+            }
         }
-        
-        if mainParts.count == 2 {
-            prefixLength = Int(mainParts[1]) ?? 24
+
+        if mainParts.count == 2, let p = Int(mainParts[1]), (0...32).contains(p)
+        {
+            prefixLength = p
         }
     }
 
-    private func saveCIDR() {
-        let ip = octets.map { $0.isEmpty ? "0" : $0 }.joined(separator: ".")
-        let combined = "\(ip)/\(prefixLength)"
+    private func validateAndSave() {
+        let validatedOctets = octets.compactMap { str -> String? in
+            if let val = Int(str), (0...255).contains(val) {
+                return String(val)
+            }
+            return nil
+        }
+
+        guard validatedOctets.count == 4 else {
+            return
+        }
+
+        let combined =
+            "\(validatedOctets.joined(separator: "."))/\(prefixLength)"
         onSave(combined)
         dismiss()
     }
