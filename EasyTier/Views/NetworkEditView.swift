@@ -4,7 +4,7 @@ struct NetworkEditView: View {
     @Binding var profile: NetworkProfile
     @State var sel = 0
     @State private var isShowingCIDRManagement = false
-    @State private var useCIDR = false // 这里的状态是持久的
+    @State private var useCIDR = false 
     
     var body: some View {
         Form {
@@ -543,6 +543,9 @@ struct CIDRManagementView: View {
             .navigationTitle("Proxy CIDRs")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    EditButton()
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
                 }
@@ -572,67 +575,121 @@ struct CIDRManagementView: View {
 
 struct CIDREditView: View {
     @Environment(\.dismiss) var dismiss
-    
     @Binding var fullText: String
     var onSave: (String) -> Void
 
-    @State private var ipAddress: String = ""
+    enum Field: Hashable { case octet1, octet2, octet3, octet4, prefix }
+    @FocusState private var focusedField: Field?
+
+    @State private var octets: [String] = ["", "", "", ""]
     @State private var prefixLength: Int = 24
 
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("CIDR Configuration")) {
-                    HStack {
-                        TextField("IPv4 Address", text: $ipAddress)
-                            .keyboardType(.numbersAndPunctuation)
-                            .autocapitalization(.none)
+                    HStack(spacing: 5) {
+                        ForEach(0..<4) { index in
+                            TextField("0", text: $octets[index])
+                                .focused($focusedField, equals: getField(for: index))
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .onChange(of: octets[index]) { [oldValue = octets[index]] newValue in
+                                    handleIPInput(index: index, newValue: newValue, oldValue: oldValue)
+                                }
+                            
+                            if index < 3 { Text(".").foregroundColor(.secondary) }
+                        }
                         
-                        Text("/")
-                            .foregroundColor(.secondary)
+                        Text("/").foregroundColor(.secondary)
                         
-                        TextField("Length", value: $prefixLength, formatter: NumberFormatter())
-                            .frame(width: 50)
+                        TextField("24", value: $prefixLength, formatter: NumberFormatter())
+                            .focused($focusedField, equals: .prefix)
                             .keyboardType(.numberPad)
+                            .frame(width: 45)
                             .multilineTextAlignment(.center)
+                            .onChange(of: prefixLength) { val in
+                                if val > 32 { prefixLength = 32 }
+                            }
                     }
                 }
-                
-                Section(footer: Text("Example: 192.168.1.0 / 24")) {
-                    EmptyView()
-                }
             }
-            .navigationTitle(fullText.isEmpty ? "Add CIDR" : "Edit CIDR")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
+                
+                ToolbarItem(placement: .principal) {
+                    Text(fullText.isEmpty ? "Add CIDR" : "Edit CIDR")
+                        .font(.headline)
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        let combined = "\(ipAddress)/\(prefixLength)"
-                        onSave(combined)
-                        dismiss()
+                        saveCIDR()
                     }
-                    .disabled(ipAddress.isEmpty)
                     .bold()
                 }
             }
-            .onAppear {
-                parseCIDR()
+            .onAppear { parseCIDR(); focusedField = .octet1 }
+        }
+    }
+
+    private func handleIPInput(index: Int, newValue: String, oldValue: String) {
+        var filtered = newValue.filter { "0123456789".contains($0) }
+        
+        if let numericValue = Int(filtered), numericValue > 255 {
+            filtered = "255"
+        }
+
+        if newValue.isEmpty && !oldValue.isEmpty {
+            if index > 0 {
+                focusedField = getField(for: index - 1)
             }
+            octets[index] = ""
+            return
+        }
+
+        if filtered != newValue {
+            octets[index] = filtered
+        }
+
+        if filtered.count >= 3 {
+            if index < 3 {
+                focusedField = getField(for: index + 1)
+            } else {
+                focusedField = .prefix
+            }
+        }
+    }
+
+    private func getField(for index: Int) -> Field {
+        switch index {
+        case 0: return .octet1; case 1: return .octet2;
+        case 2: return .octet3; case 3: return .octet4; default: return .octet1
         }
     }
 
     private func parseCIDR() {
         guard !fullText.isEmpty else { return }
+        let mainParts = fullText.components(separatedBy: "/")
         
-        let components = fullText.components(separatedBy: "/")
-        if components.count == 2 {
-            ipAddress = components[0]
-            prefixLength = Int(components[1]) ?? 24
-        } else {
-            ipAddress = fullText
+        let ipParts = mainParts[0].components(separatedBy: ".")
+        for i in 0..<min(ipParts.count, 4) {
+            octets[i] = ipParts[i]
         }
+        
+        if mainParts.count == 2 {
+            prefixLength = Int(mainParts[1]) ?? 24
+        }
+    }
+
+    private func saveCIDR() {
+        let ip = octets.map { $0.isEmpty ? "0" : $0 }.joined(separator: ".")
+        let combined = "\(ip)/\(prefixLength)"
+        onSave(combined)
+        dismiss()
     }
 }
