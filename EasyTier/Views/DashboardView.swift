@@ -97,8 +97,8 @@ struct DashboardView: View {
                 Task {
                     if isConnected {
                         await manager.disconnect()
-                    } else {
-                        try? await manager.connect()
+                    } else if let selectedProfile {
+                        try? await manager.connect(profile: selectedProfile.profile)
                     }
                     isLocalPending = false
                 }

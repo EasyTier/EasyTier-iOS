@@ -2,7 +2,7 @@ import os
 import NetworkExtension
 
 class PacketTunnelProvider: NEPacketTunnelProvider {
-    let logger = Logger(subsystem: "site.yinmo.easytier", category: "tunnel")
+    let logger = Logger(subsystem: "site.yinmo.easytier.tunnel", category: "tunnel")
 
     func getErrorMsg() -> String? {
         var ptr: UnsafePointer<CChar>? = nil
@@ -16,8 +16,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
-        self.setTunnelNetworkSettings(options?["settings"] as? NETunnelNetworkSettings)
-        
+        logger.warning("startTunnel: triggered")
         let ret = (options?["config"] as? String)?.withCString { strPtr in
             return run_network_instance(strPtr)
         }
@@ -27,7 +26,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             completionHandler(err)
         }
 
-        completionHandler(nil)
+        self.setTunnelNetworkSettings(options?["settings"] as? NETunnelNetworkSettings) { [weak self] error in
+            let tunFd = self?.packetFlow.value(forKeyPath: "socket.fileDescriptor") as! Int32
+            DispatchQueue.global(qos: .default).async {
+                let ret = (options?["name"] as? String)?.withCString { strPtr in
+                    return set_tun_fd(strPtr, tunFd)
+                }
+                if ret != 0 {
+                    let err = self?.getErrorMsg()
+                    self?.logger.error("startTunnel: \(err ?? "Unknown")")
+                    completionHandler(err)
+                }
+            }
+            completionHandler(nil)
+        }
     }
     
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {

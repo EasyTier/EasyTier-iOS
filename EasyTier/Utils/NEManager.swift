@@ -2,6 +2,8 @@ import Foundation
 import Combine
 import NetworkExtension
 
+import TOMLKit
+
 class NEManager: ObservableObject {
     private var manager: NETunnelProviderManager?
     private var connection: NEVPNConnection?
@@ -96,7 +98,7 @@ class NEManager: ObservableObject {
         }
     }
     
-    func connect() async throws {
+    func connect(profile: NetworkProfile) async throws {
         guard ![.connecting, .connected, .disconnecting, .reasserting].contains(status) else {
             print("[NEManager] connect() failed: in \(status) status")
             return
@@ -106,8 +108,8 @@ class NEManager: ObservableObject {
             return
         }
         if status == .invalid {
-            let manager = try await NEManager.install()
-            setManager(manager: manager)
+            _ = try await NEManager.install()
+            try await load()
         }
         guard let manager else {
             print("[NEManager] connect() failed: manager is nil")
@@ -115,8 +117,26 @@ class NEManager: ObservableObject {
         }
         manager.isEnabled = true
         try await manager.saveToPreferences()
+        
+        var options: [String : NSObject] = [:]
+        let config = Config(from: profile)
+        options["name"] = config.instanceName as NSObject
+        let encoded: String
+        do {
+            encoded = try TOMLEncoder().encode(config).string ?? ""
+        } catch {
+            print("[NEManager] connect() generate config failed: \(error)")
+            throw error
+        }
+        print("[NEManager] connect() config: \(encoded)")
+        options["config"] = encoded as NSObject
+        do {
+            try manager.connection.startVPNTunnel(options: options)
+        } catch {
+            print("[NEManager] connect() start vpn tunnel failed: \(error)")
+            throw error
+        }
         print("[NEManager] connect() started")
-        try manager.connection.startVPNTunnel()
     }
     
     func disconnect() async {
