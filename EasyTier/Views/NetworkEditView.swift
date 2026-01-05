@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NetworkEditView: View {
-    @Binding var profile: NetworkProfile
+    @Bindable var summary: ProfileSummary
     @State var sel = 0
     @State private var isShowingCIDRManagement = false
     @State private var useCIDR = false
@@ -29,18 +29,18 @@ struct NetworkEditView: View {
     private var basicSettings: some View {
         Group {
             Section("Virtual IPv4") {
-                Toggle("DHCP", isOn: $profile.dhcp)
+                Toggle("DHCP", isOn: $summary.profile.dhcp)
 
-                if !profile.dhcp {
+                if !summary.profile.dhcp {
                     HStack {
                         TextField(
                             "IPv4 Address",
-                            text: $profile.virtual_ipv4
+                            text: $summary.profile.virtualIPv4.ip
                         )
                         Text("/")
                         TextField(
                             "Length",
-                            value: $profile.network_length,
+                            value: $summary.profile.virtualIPv4.length,
                             formatter: NumberFormatter()
                         )
                         .frame(width: 50)
@@ -51,33 +51,33 @@ struct NetworkEditView: View {
 
             Section("Network") {
                 LabeledContent("Name") {
-                    TextField("easytier", text: $profile.network_name)
+                    TextField("easytier", text: $summary.profile.networkName)
                         .multilineTextAlignment(.trailing)
                 }
 
                 LabeledContent("Secret") {
                     SecureField(
                         "Empty",
-                        text: $profile.network_secret
+                        text: $summary.profile.networkSecret
                     )
                     .multilineTextAlignment(.trailing)
                 }
 
                 Picker(
                     "Networking Method",
-                    selection: $profile.networking_method
+                    selection: $summary.profile.networkingMethod
                 ) {
-                    ForEach(NetworkingMethod.allCases) {
+                    ForEach(NetworkProfile.NetworkingMethod.allCases) {
                         method in
-                        Text(verbatim: "\(method)".capitalized).tag(method)
+                        Text(method.description).tag(method)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.palette)
 
-                switch profile.networking_method {
+                switch summary.profile.networkingMethod {
                 case .publicServer:
                     LabeledContent("Server") {
-                        Text(profile.public_server_url)
+                        Text(summary.profile.publicServerURL)
                             .multilineTextAlignment(.trailing)
                     }
                 case .manual:
@@ -88,12 +88,12 @@ struct NetworkEditView: View {
                         TextEditor(
                             text: Binding(
                                 get: {
-                                    profile.peer_urls.joined(
+                                    summary.profile.peerURLs.joined(
                                         separator: "\n"
                                     )
                                 },
                                 set: {
-                                    profile.peer_urls = $0.split(
+                                    summary.profile.peerURLs = $0.split(
                                         whereSeparator: \.isNewline
                                     ).map(String.init)
                                 }
@@ -115,44 +115,44 @@ struct NetworkEditView: View {
         Form {
             Section("General") {
                 LabeledContent("Hostname") {
-                    TextField("Default", text: $profile.hostname.bound)
+                    TextField("Default", text: $summary.profile.hostname.bound)
                         .multilineTextAlignment(.trailing)
                 }
 
                 Toggle(
                     "Enable VPN Portal",
-                    isOn: $profile.enable_vpn_portal
+                    isOn: $summary.profile.enableVPNPortal
                 )
-                if profile.enable_vpn_portal {
+                if summary.profile.enableVPNPortal {
                     HStack {
                         TextField(
                             "Client Network Address",
-                            text: $profile
-                                .vpn_portal_client_network_addr
+                            text: $summary.profile
+                                .vpnPortalClientCIDR.ip
                         )
                         Text("/")
                         TextField(
                             "Length",
-                            value: $profile
-                                .vpn_portal_client_network_len,
+                            value: $summary.profile
+                                .vpnPortalClientCIDR.length,
                             formatter: NumberFormatter()
                         )
                         .frame(width: 50)
                     }
                     TextField(
                         "Listen Port",
-                        value: $profile.vpn_portal_listen_port,
+                        value: $summary.profile.vpnPortalListenPort,
                         formatter: NumberFormatter()
                     )
                 }
 
                 MultiLineTextField(
                     title: "Listener URLs",
-                    items: $profile.listener_urls
+                    items: $summary.profile.listenerURLs
                 )
 
                 LabeledContent("Device Name") {
-                    TextField("Default", text: $profile.dev_name)
+                    TextField("Default", text: $summary.profile.devName)
                         .multilineTextAlignment(.trailing)
                 }
 
@@ -160,7 +160,7 @@ struct NetworkEditView: View {
                     Text("MTU")
                     TextField(
                         "MTU",
-                        value: $profile.mtu.bound,
+                        value: $summary.profile.mtu,
                         formatter: NumberFormatter()
                     )
                     .help(
@@ -170,45 +170,45 @@ struct NetworkEditView: View {
 
                 Toggle(
                     "Enable Relay Network Whitelist",
-                    isOn: $profile.enable_relay_network_whitelist
+                    isOn: $summary.profile.enableRelayNetworkWhitelist
                 )
-                if profile.enable_relay_network_whitelist {
+                if summary.profile.enableRelayNetworkWhitelist {
                     MultiLineTextField(
                         title: "Relay Network Whitelist",
-                        items: $profile.relay_network_whitelist
+                        items: $summary.profile.relayNetworkWhitelist
                     )
                 }
 
                 Toggle(
                     "Enable Manual Routes",
-                    isOn: $profile.enable_manual_routes
+                    isOn: $summary.profile.enableManualRoutes
                 )
-                if profile.enable_manual_routes {
+                if summary.profile.enableManualRoutes {
                     MultiLineTextField(
                         title: "Manual Routes",
-                        items: $profile.routes
+                        items: $summary.profile.routes
                     )
                 }
 
                 Toggle(
                     "Enable SOCKS5 Server",
-                    isOn: $profile.enable_socks5
+                    isOn: $summary.profile.enableSocks5
                 )
-                if profile.enable_socks5 {
+                if summary.profile.enableSocks5 {
                     TextField(
                         "SOCKS5 Port",
-                        value: $profile.socks5_port,
+                        value: $summary.profile.socks5Port,
                         formatter: NumberFormatter()
                     )
                 }
 
                 MultiLineTextField(
                     title: "Exit Nodes",
-                    items: $profile.exit_nodes
+                    items: $summary.profile.exitNodes
                 )
                 MultiLineTextField(
                     title: "Mapped Listeners",
-                    items: $profile.mapped_listeners
+                    items: $summary.profile.mappedListeners
                 )
             }
 
@@ -226,7 +226,7 @@ struct NetworkEditView: View {
 
             Section("Feature") {
                 ForEach(NetworkProfile.boolFlags) { flag in
-                    Toggle(isOn: binding($profile, to: flag.keyPath)) {
+                    Toggle(isOn: binding($summary.profile, to: flag.keyPath)) {
                         Text(flag.label)
                         if let help = flag.help {
                             Text(help)
@@ -240,7 +240,7 @@ struct NetworkEditView: View {
 
     fileprivate var portForwardsSettings: some View {
         Form {
-            ForEach($profile.port_forwards) { $forward in
+            ForEach($summary.profile.portForwards) { $forward in
                 VStack {
                     HStack {
                         Picker("", selection: $forward.proto) {
@@ -253,7 +253,7 @@ struct NetworkEditView: View {
                         Spacer()
 
                         Button(action: {
-                            profile.port_forwards.removeAll {
+                            summary.profile.portForwards.removeAll {
                                 $0.id == forward.id
                             }
                         }) {
@@ -263,11 +263,11 @@ struct NetworkEditView: View {
                         .buttonStyle(.borderless)
                     }
                     HStack {
-                        TextField("Bind IP", text: $forward.bind_ip)
+                        TextField("Bind IP", text: $forward.bindIP)
                         Text(":")
                         TextField(
                             "Port",
-                            value: $forward.bind_port,
+                            value: $forward.bindPort,
                             formatter: NumberFormatter()
                         ).frame(width: 60)
                     }
@@ -277,11 +277,11 @@ struct NetworkEditView: View {
                         Text("Forward to").foregroundColor(.secondary)
                     }
                     HStack {
-                        TextField("Destination IP", text: $forward.dst_ip)
+                        TextField("Destination IP", text: $forward.dstIP)
                         Text(":")
                         TextField(
                             "Port",
-                            value: $forward.dst_port,
+                            value: $forward.dstPort,
                             formatter: NumberFormatter()
                         ).frame(width: 60)
                     }
@@ -293,7 +293,7 @@ struct NetworkEditView: View {
                 "Add Port Forward",
                 systemImage: "plus",
                 action: {
-                    profile.port_forwards.append(PortForwardConfig())
+                    summary.profile.portForwards.append(NetworkProfile.PortForwardSetting())
                 }
             )
             .frame(maxWidth: .infinity, alignment: .center)
@@ -367,130 +367,114 @@ private struct BoolFlag: Identifiable {
 extension NetworkProfile {
     fileprivate static let boolFlags: [BoolFlag] = [
         .init(
-            keyPath: \.latency_first,
+            keyPath: \.latencyFirst,
             label: "Latency-First Mode",
             help:
                 "Ignore hop count and select the path with the lowest total latency."
         ),
         .init(
-            keyPath: \.use_smoltcp,
+            keyPath: \.useSmoltcp,
             label: "Use User-Space Protocol Stack",
             help:
                 "Use a user-space TCP/IP stack to avoid issues with OS firewalls."
         ),
         .init(
-            keyPath: \.disable_ipv6,
+            keyPath: \.disableIPv6,
             label: "Disable IPv6",
             help: "Disable IPv6 functionality for this node."
         ),
         .init(
-            keyPath: \.enable_kcp_proxy,
+            keyPath: \.enableKCPProxy,
             label: "Enable KCP Proxy",
             help: "Convert TCP traffic to KCP to reduce latency."
         ),
         .init(
-            keyPath: \.disable_kcp_input,
+            keyPath: \.disableKCPInput,
             label: "Disable KCP Input",
             help: "Disable inbound KCP traffic."
         ),
         .init(
-            keyPath: \.enable_quic_proxy,
+            keyPath: \.enableQUICProxy,
             label: "Enable QUIC Proxy",
             help: "Convert TCP traffic to QUIC to reduce latency."
         ),
         .init(
-            keyPath: \.disable_quic_input,
+            keyPath: \.disableQUICInput,
             label: "Disable QUIC Input",
             help: "Disable inbound QUIC traffic."
         ),
         .init(
-            keyPath: \.disable_p2p,
+            keyPath: \.disableP2P,
             label: "Disable P2P",
             help: "Route all traffic through a manually specified relay server."
         ),
         .init(
-            keyPath: \.p2p_only,
+            keyPath: \.p2pOnly,
             label: "P2P Only",
             help:
                 "Only communicate with peers that have established P2P connections."
         ),
         .init(
-            keyPath: \.bind_device,
+            keyPath: \.bindDevice,
             label: "Bind to Physical Device Only",
             help: "Use only the physical network interface."
         ),
         .init(
-            keyPath: \.no_tun,
+            keyPath: \.noTUN,
             label: "No TUN Mode",
             help:
                 "Do not use a TUN interface. This node will be accessible but cannot initiate connections to others without SOCKS5."
         ),
         .init(
-            keyPath: \.enable_exit_node,
+            keyPath: \.enableExitNode,
             label: "Enable Exit Node",
             help: "Allow this node to be an exit node."
         ),
         .init(
-            keyPath: \.relay_all_peer_rpc,
+            keyPath: \.relayAllPeerRPC,
             label: "Relay All Peer RPC",
             help:
                 "Relay all peer RPC packets, even for peers not in the whitelist."
         ),
         .init(
-            keyPath: \.multi_thread,
+            keyPath: \.multiThread,
             label: "Multi-Threaded Runtime",
             help: "Use a multi-thread runtime for performance."
         ),
         .init(
-            keyPath: \.proxy_forward_by_system,
+            keyPath: \.proxyForwardBySystem,
             label: "System Forwarding for Proxy",
             help: "Forward packets to proxy networks via the system kernel."
         ),
         .init(
-            keyPath: \.disable_encryption,
+            keyPath: \.disableEncryption,
             label: "Disable Encryption",
             help:
                 "Disable encryption for peer communication. Must be the same on all peers."
         ),
         .init(
-            keyPath: \.disable_udp_hole_punching,
+            keyPath: \.disableUDPHolePunching,
             label: "Disable UDP Hole Punching",
             help: "Disable the UDP hole punching mechanism."
         ),
         .init(
-            keyPath: \.disable_sym_hole_punching,
+            keyPath: \.disableSymHolePunching,
             label: "Disable Symmetric NAT Hole Punching",
             help: "Disable special handling for symmetric NATs."
         ),
         .init(
-            keyPath: \.enable_magic_dns,
+            keyPath: \.enableMagicDNS,
             label: "Enable Magic DNS",
             help:
                 "Access nodes in the network by their hostname via a special DNS."
         ),
         .init(
-            keyPath: \.enable_private_mode,
+            keyPath: \.enablePrivateMode,
             label: "Enable Private Mode",
             help:
                 "Do not allow handshake or relay for nodes with a different network name or secret."
         ),
     ]
-}
-
-struct NetworkConfigurationView_Previews: PreviewProvider {
-    static var previews: some View {
-        @State var profile = NetworkProfile(id: UUID())
-        NavigationView {
-            NetworkEditView(profile: $profile)
-        }
-    }
-}
-
-struct Advanced_Settings_Previews: PreviewProvider {
-    static var previews: some View {
-        @State var profile = NetworkProfile(id: UUID())
-        NetworkEditView(profile: $profile).advancedSettings
-    }
 }
 
 struct CIDRManagementView: View {
@@ -738,5 +722,21 @@ struct CIDREditView: View {
             "\(validatedOctets.joined(separator: "."))/\(prefixLength)"
         onSave(combined)
         dismiss()
+    }
+}
+
+struct NetworkConfigurationView_Previews: PreviewProvider {
+    static var previews: some View {
+        @Bindable var summary = ProfileSummary(id: UUID(), name: "example")
+        NavigationView {
+            NetworkEditView(summary: summary)
+        }
+    }
+}
+
+struct Advanced_Settings_Previews: PreviewProvider {
+    static var previews: some View {
+        @Bindable var summary = ProfileSummary(id: UUID(), name: "example")
+        NetworkEditView(summary: summary).advancedSettings
     }
 }

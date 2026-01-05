@@ -1,15 +1,16 @@
 import SwiftUI
+import SwiftData
 
-struct ContentView: View {
+struct ContentView<Manager: NEManagerProtocol>: View {
     var body: some View {
         NavigationStack {
             TabView {
-                DashboardView()
+                DashboardView<Manager>()
                     .tabItem {
                         Image(systemName: "list.bullet.below.rectangle")
                         Text("Dashboard")
                     }
-                Text("Not Implemented")
+                LogView()
                     .tabItem {
                         Image(systemName: "rectangle.and.text.magnifyingglass")
                         Text("Logs")
@@ -27,6 +28,16 @@ struct ContentView: View {
 
 struct MainView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        @StateObject var manager = MockNEManager()
+        ContentView<MockNEManager>()
+            .modelContainer(
+                try! ModelContainer(
+                    for: Schema([ProfileSummary.self, NetworkProfile.self]),
+                    configurations: ModelConfiguration(
+                        isStoredInMemoryOnly: true
+                    )
+                )
+            )
+            .environmentObject(manager)
     }
 }

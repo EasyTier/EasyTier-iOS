@@ -1,164 +1,270 @@
 import Foundation
 
-struct NetworkInstance: Codable, Identifiable {
-    var id: String { instance_id }
-    var instance_id: String
-    var running: Bool
-    var error_msg: String
-    var detail: NetworkInstanceRunningInfo?
-}
+struct NetworkStatus: Codable {
+    enum NATType: Int, Codable, CustomStringConvertible {
+        case unknown = 0
+        case openInternet = 1
+        case noPAT = 2
+        case fullCone = 3
+        case restricted = 4
+        case portRestricted = 5
+        case symmetric = 6
+        case symUDPFirewall = 7
+        case symmetricEasyInc = 8
+        case symmetricEasyDec = 9
 
-struct NetworkInstanceRunningInfo: Codable {
-    var dev_name: String
-    var my_node_info: NodeInfo
-    var events: [String] // JSON strings
+        var description: String {
+            switch self {
+            case .unknown: "Unknown"
+            case .openInternet: "Open Internet"
+            case .noPAT: "No PAT"
+            case .fullCone: "Full Cone"
+            case .restricted: "Restricted"
+            case .portRestricted: "PortRestricted"
+            case .symmetric: "Symmetric"
+            case .symUDPFirewall: "Symmetric UDP Firewall"
+            case .symmetricEasyInc: "Symmetric Easy Inc"
+            case .symmetricEasyDec: "Symmetric Easy Dec"
+            }
+        }
+    }
+
+    struct IPv4Addr: Codable, Hashable, CustomStringConvertible {
+        var addr: UInt32
+
+        static func fromString(_ s: String) -> IPv4Addr? {
+            let components = s.split(separator: ".").compactMap { UInt32($0) }
+            guard components.count == 4 else { return nil }
+            let addr =
+                (components[0] << 24) | (components[1] << 16)
+                | (components[2] << 8) | components[3]
+            return IPv4Addr(addr: addr)
+        }
+
+        var description: String {
+            let ip = addr
+            return
+                "\((ip >> 24) & 0xFF).\((ip >> 16) & 0xFF).\((ip >> 8) & 0xFF).\(ip & 0xFF)"
+        }
+    }
+
+    struct IPv4CIDR: Codable, Hashable, CustomStringConvertible {
+        var address: IPv4Addr
+        var networkLength: Int
+
+        var description: String {
+            return "\(address.description)/\(networkLength)"
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case address
+            case networkLength = "network_length"
+        }
+    }
+
+    struct IPv6Addr: Codable, Hashable {
+        var part1: UInt32
+        var part2: UInt32
+        var part3: UInt32
+        var part4: UInt32
+    }
+
+    struct Url: Codable, Hashable {
+        var url: String
+    }
+
+    struct NodeInfo: Codable {
+        struct IPs: Codable {
+            var publicIPv4: IPv4Addr?
+            var interfaceIPv4s: [IPv4Addr]
+            var publicIPv6: IPv6Addr?
+            var interfaceIPv6s: [IPv6Addr]
+
+            enum CodingKeys: String, CodingKey {
+                case publicIPv4 = "public_ipv4"
+                case interfaceIPv4s = "interface_ipv4s"
+                case publicIPv6 = "public_ipv6"
+                case interfaceIPv6s = "interface_ipv6s"
+            }
+        }
+        var virtualIPv4: IPv4CIDR?
+        var hostname: String
+        var version: String
+        var ips: IPs?
+        var stunInfo: STUNInfo?
+        var listeners: [Url]
+        var vpnPortalCfg: String?
+
+        enum CodingKeys: String, CodingKey {
+            case virtualIPv4 = "virtual_ipv4"
+            case hostname, version, ips, listeners
+            case stunInfo = "stun_info"
+            case vpnPortalCfg = "vpn_portal_cfg"
+        }
+    }
+
+    struct STUNInfo: Codable, Hashable {
+        var udpNATType: NATType
+        var tcpNATType: NATType
+        var lastUpdateTime: TimeInterval
+
+        enum CodingKeys: String, CodingKey {
+            case udpNATType = "udp_nat_type"
+            case tcpNATType = "tcp_nat_type"
+            case lastUpdateTime = "last_update_time"
+        }
+    }
+
+    struct Route: Codable, Hashable, Identifiable {
+        var id: Int { peerId }
+        var peerId: Int
+        var ipv4Addr: IPv4CIDR?
+        var nextHopPeerId: Int
+        var cost: Int
+        var proxyCIDRs: [String]
+        var hostname: String
+        var stunInfo: STUNInfo?
+        var instId: String
+        var version: String
+
+        enum CodingKeys: String, CodingKey {
+            case peerId = "peer_id"
+            case ipv4Addr = "ipv4_addr"
+            case nextHopPeerId = "next_hop_peer_id"
+            case cost, hostname, version
+            case proxyCIDRs = "proxy_cidrs"
+            case stunInfo = "stun_info"
+            case instId = "inst_id"
+        }
+    }
+
+    struct PeerInfo: Codable, Hashable, Identifiable {
+        var id: Int { peerId }
+        var peerId: Int
+        var conns: [PeerConnInfo]
+
+        enum CodingKeys: String, CodingKey {
+            case peerId = "peer_id"
+            case conns
+        }
+    }
+
+    struct PeerConnInfo: Codable, Hashable {
+        var connId: String
+        var myPeerId: Int
+        var isClient: Bool
+        var peerId: Int
+        var features: [String]
+        var tunnel: TunnelInfo?
+        var stats: PeerConnStats?
+        var lossRate: Double
+
+        enum CodingKeys: String, CodingKey {
+            case connId = "conn_id"
+            case myPeerId = "my_peer_id"
+            case isClient = "is_client"
+            case peerId = "peer_id"
+            case features, tunnel, stats
+            case lossRate = "loss_rate"
+        }
+    }
+
+    struct PeerRoutePair: Codable, Hashable, Identifiable {
+        var id: Int { route.id }
+        var route: Route
+        var peer: PeerInfo?
+    }
+
+    struct TunnelInfo: Codable, Hashable {
+        var tunnelType: String
+        var localAddr: Url
+        var remoteAddr: Url
+
+        enum CodingKeys: String, CodingKey {
+            case tunnelType = "tunnel_type"
+            case localAddr = "local_addr"
+            case remoteAddr = "remote_addr"
+        }
+    }
+
+    struct PeerConnStats: Codable, Hashable {
+        var rxBytes: Int
+        var txBytes: Int
+        var rxPackets: Int
+        var txPackets: Int
+        var latencyUs: Int
+
+        enum CodingKeys: String, CodingKey {
+            case rxBytes = "rx_bytes"
+            case txBytes = "tx_bytes"
+            case rxPackets = "rx_packets"
+            case txPackets = "tx_packets"
+            case latencyUs = "latency_us"
+        }
+    }
+
+    var devName: String
+    var myNodeInfo: NodeInfo?
+    var events: [String]
     var routes: [Route]
     var peers: [PeerInfo]
-    var peer_route_pairs: [PeerRoutePair]
+    var peerRoutePairs: [PeerRoutePair]
     var running: Bool
-    var error_msg: String?
-}
+    var errorMsg: String?
 
-struct Ipv4Addr: Codable, Hashable {
-    var addr: UInt32
-}
-
-struct Ipv4Inet: Codable, Hashable {
-    var address: Ipv4Addr
-    var network_length: Int
-}
-
-struct Ipv6Addr: Codable, Hashable {
-    var part1: UInt32
-    var part2: UInt32
-    var part3: UInt32
-    var part4: UInt32
-}
-
-struct Url: Codable, Hashable {
-    var url: String
-}
-
-struct NodeInfo: Codable {
-    struct Ips: Codable {
-        var public_ipv4: Ipv4Addr?
-        var interface_ipv4s: [Ipv4Addr]
-        var public_ipv6: Ipv6Addr?
-        var interface_ipv6s: [Ipv6Addr]
+    enum CodingKeys: String, CodingKey {
+        case devName = "dev_name"
+        case myNodeInfo = "my_node_info"
+        case events, routes, peers, running
+        case peerRoutePairs = "peer_route_pairs"
+        case errorMsg = "error_msg"
     }
-    var virtual_ipv4: Ipv4Inet
-    var hostname: String
-    var version: String
-    var ips: Ips?
-    var stun_info: StunInfo
-    var listeners: [Url]
-    var vpn_portal_cfg: String?
-}
 
-struct StunInfo: Codable, Hashable {
-    var udp_nat_type: Int
-    var tcp_nat_type: Int
-    var last_update_time: TimeInterval
-}
-
-struct Route: Codable, Hashable, Identifiable {
-    var id: Int { peer_id }
-    var peer_id: Int
-    var ipv4_addr: String?
-    var next_hop_peer_id: Int
-    var cost: Int
-    var proxy_cidrs: [String]
-    var hostname: String
-    var stun_info: StunInfo?
-    var inst_id: String
-    var version: String
-}
-
-struct PeerInfo: Codable, Hashable, Identifiable {
-    var id: Int { peer_id }
-    var peer_id: Int
-    var conns: [PeerConnInfo]
-}
-
-struct PeerConnInfo: Codable, Hashable {
-    var conn_id: String
-    var my_peer_id: Int
-    var is_client: Bool
-    var peer_id: Int
-    var features: [String]
-    var tunnel: TunnelInfo?
-    var stats: PeerConnStats?
-    var loss_rate: Double
-}
-
-struct PeerRoutePair: Codable, Hashable, Identifiable {
-    var id: Int { route.id }
-    var route: Route
-    var peer: PeerInfo?
-}
-
-struct TunnelInfo: Codable, Hashable {
-    var tunnel_type: String
-    var local_addr: Url
-    var remote_addr: Url
-}
-
-struct PeerConnStats: Codable, Hashable {
-    var rx_bytes: Int
-    var tx_bytes: Int
-    var rx_packets: Int
-    var tx_packets: Int
-    var latency_us: Int
-}
-
-extension Ipv4Addr {
-    static func fromString(_ s: String) -> Ipv4Addr? {
-        let components = s.split(separator: ".").compactMap { UInt32($0) }
-        guard components.count == 4 else { return nil }
-        let addr = (components[0] << 24) | (components[1] << 16) | (components[2] << 8) | components[3]
-        return Ipv4Addr(addr: addr)
+    func sum(of keyPath: KeyPath<PeerConnStats, Int>) -> Int {
+        peers
+            .flatMap { $0.conns }
+            .compactMap { $0.stats }
+            .map { $0[keyPath: keyPath] }
+            .reduce(0, +)
     }
 }
 
-#if DEBUG
-extension NetworkInstance {
-    static func mockInstance(id: String = "uuid-1") -> NetworkInstance {
-        let myNodeInfo = NodeInfo(
-            virtual_ipv4: Ipv4Inet(address: Ipv4Addr.fromString("10.144.144.10")!, network_length: 24),
-            hostname: "my-macbook-pro",
-            version: "0.10.1",
-            ips: .init(
-                public_ipv4: Ipv4Addr.fromString("8.8.8.8"),
-                interface_ipv4s: [Ipv4Addr.fromString("192.168.1.100")!],
-                public_ipv6: nil as Ipv6Addr?,
-                interface_ipv6s: []
-            ),
-            stun_info: StunInfo(udp_nat_type: 3, tcp_nat_type: 0, last_update_time: Date().timeIntervalSince1970 - 10),
-            listeners: [Url(url: "tcp://0.0.0.0:11010"), Url(url: "udp://0.0.0.0:11010")],
-            vpn_portal_cfg: "[Interface]\nPrivateKey = [REDACTED]\nAddress = 10.144.144.1/24\nListenPort = 22022\n\n[Peer]\nPublicKey = [REDACTED]\nAllowedIPs = 10.144.144.2/32"
-        )
+struct TimelineEntry: Identifiable {
+    var id: String { self.original }
+    let date: Date?
+    let name: String?
+    let payload: String
+    let original: String
+    
+    // Parser
+    static func parse(_ rawLines: [String]) -> [TimelineEntry] {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         
-        let peerRoute1 = Route(peer_id: 123, ipv4_addr: "10.144.144.11", next_hop_peer_id: 123, cost: 1, proxy_cidrs: [], hostname: "peer-1-ubuntu", stun_info: StunInfo(udp_nat_type: 1, tcp_nat_type: 0, last_update_time: Date().timeIntervalSince1970 - 20), inst_id: id, version: "0.10.0")
-        let peerRoute2 = Route(peer_id: 456, ipv4_addr: "10.144.144.12", next_hop_peer_id: 789, cost: 2, proxy_cidrs: [], hostname: "peer-2-relayed-windows", stun_info: StunInfo(udp_nat_type: 6, tcp_nat_type: 0, last_update_time: Date().timeIntervalSince1970 - 30), inst_id: id, version: "0.9.8")
-
-        let peer1 = PeerInfo(peer_id: 123, conns: [PeerConnInfo(conn_id: "conn-1", my_peer_id: 0, is_client: true, peer_id: 123, features: [], tunnel: TunnelInfo(tunnel_type: "tcp", local_addr: Url(url:"192.168.1.100:55555"), remote_addr: Url(url:"1.2.3.4:11010")), stats: PeerConnStats(rx_bytes: 102400, tx_bytes: 204800, rx_packets: 100, tx_packets: 200, latency_us: 50000), loss_rate: 0.01)])
-        
-        let detail = NetworkInstanceRunningInfo(
-            dev_name: "utun10",
-            my_node_info: myNodeInfo,
-            events: ["{\"time\":\"2025-12-30T12:00:00Z\",\"event\":{\"TunDeviceReady\":\"utun10\"}}", "{\"time\":\"2025-12-30T12:00:05Z\",\"event\":{\"PeerAdded\":123}}"],
-            routes: [peerRoute1, peerRoute2],
-            peers: [peer1],
-            peer_route_pairs: [
-                PeerRoutePair(route: peerRoute1, peer: peer1),
-                PeerRoutePair(route: peerRoute2, peer: nil)
-            ],
-            running: true,
-            error_msg: nil
-        )
-        
-        return NetworkInstance(instance_id: id, running: true, error_msg: "", detail: detail)
+        return rawLines.compactMap { line in
+            guard let data = line.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let timeStr = json["time"] as? String,
+                  let date = isoFormatter.date(from: timeStr),
+                  let eventData = json["event"] else {
+                return TimelineEntry(date: nil, name: nil, payload: line, original: line)
+            }
+            
+            let name: String?
+            let payload: Any
+            if let eventData = eventData as? [String: Any], eventData.count == 1, let name_ = eventData.keys.first, let payload_ = eventData[name_] {
+                name = name_
+                payload = payload_
+            } else {
+                name = nil
+                payload = eventData
+            }
+            
+            if let prettyData = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .withoutEscapingSlashes, .fragmentsAllowed]),
+               let prettyString = String(data: prettyData, encoding: .utf8) {
+                return TimelineEntry(date: date, name: name, payload: prettyString, original: line)
+            }
+            return TimelineEntry(date: date, name: nil, payload: line, original: line)
+        }.sorted { $0.date ?? .distantPast > $1.date ?? .distantPast }
     }
 }
-#endif
-
