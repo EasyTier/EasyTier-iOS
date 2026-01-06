@@ -103,10 +103,10 @@ struct IPv4Field: View {
             return
         }
         
-        if let num = Int(filtered), num <= 255 {
-            octets[index] = String(num)
+        if let num = Int(filtered) {
+            octets[index] = String(max(min(num, 255), 0))
             
-            if filtered.count == 3 {
+            if filtered.count >= 3 {
                 focusedField = index + 1
             }
             updateIPBinding()

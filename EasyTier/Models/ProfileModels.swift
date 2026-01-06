@@ -61,9 +61,10 @@ final class NetworkProfile {
     }
 
     nonisolated
-    struct CIDR: Codable, Hashable {
-        var ip: String
-        var length: String
+    struct CIDR: Codable, Hashable, Identifiable {
+        var id = UUID()
+        var ip: String = "0.0.0.0"
+        var length: String = "32"
         
         var cidrString: String {
             "\(ip)/\(length)"
@@ -130,7 +131,7 @@ final class NetworkProfile {
     var relayNetworkWhitelist: [String] = []
 
     var enableManualRoutes: Bool = false
-    var routes: [String] = []
+    var routes: [CIDR] = []
     
     var portForwards: [PortForwardSetting] = []
 

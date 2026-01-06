@@ -253,7 +253,7 @@ struct NetworkConfig: Codable {
         }
         
         if profile.enableManualRoutes {
-            self.routes = profile.routes
+            self.routes = profile.routes.map { $0.cidrString }
         }
         
         if !profile.exitNodes.isEmpty {

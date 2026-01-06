@@ -118,6 +118,7 @@ struct NetworkEditView: View {
                             value: $profile.vpnPortalListenPort,
                             formatter: NumberFormatter()
                         )
+                        .multilineTextAlignment(.trailing)
                     }
                 }
             }
@@ -150,9 +151,8 @@ struct NetworkEditView: View {
             Section {
                 Toggle("Enable", isOn: $profile.enableManualRoutes)
                 if profile.enableManualRoutes {
-                    ListEditor(newItemTitle: "Add Route", items: $profile.routes, addItemFactory: { "" }, rowContent: {
-                        TextField("e.g.:192.168.0.0/16", text: $0)
-                            .fontDesign(.monospaced)
+                    ListEditor(newItemTitle: "Add Route", items: $profile.routes, addItemFactory: NetworkProfile.CIDR.init, rowContent: {
+                        IPv4Field(ip: $0.ip, length: $0.length)
                     })
                 }
             } header: {
@@ -284,6 +284,7 @@ struct NetworkEditView: View {
                         Text("\(proxyCIDR.cidr.wrappedValue)/\(proxyCIDR.length.wrappedValue)")
                             .fontDesign(.monospaced)
                         Image(systemName: "arrow.right")
+                            .foregroundStyle(.secondary)
                         Text("\(proxyCIDR.mappedCIDR.wrappedValue)/\(proxyCIDR.length.wrappedValue)")
                             .fontDesign(.monospaced)
                     } else {
