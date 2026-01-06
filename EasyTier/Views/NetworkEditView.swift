@@ -181,13 +181,10 @@ struct NetworkEditView: View {
             }
             
             Section {
-                Toggle("Enable", isOn: $profile.enableExitNode)
-                if profile.enableExitNode {
-                    ListEditor(newItemTitle: "Add Exit Node", items: $profile.exitNodes, addItemFactory: { "" }, rowContent: {
-                        TextField("Node IP, e.g. 192.168.8.8", text: $0)
-                            .fontDesign(.monospaced)
-                    })
-                }
+                ListEditor(newItemTitle: "Add Exit Node", items: $profile.exitNodes, addItemFactory: { "" }, rowContent: {
+                    TextField("Node IP, e.g. 192.168.8.8", text: $0)
+                        .fontDesign(.monospaced)
+                })
             } header: {
                 Text("Exit Nodes")
             } footer: {
@@ -281,6 +278,7 @@ struct NetworkEditView: View {
                     if proxyCIDR.enableMapping.wrappedValue {
                         Text("Map:")
                             .foregroundStyle(.secondary)
+                        Spacer()
                         Text("\(proxyCIDR.cidr.wrappedValue)/\(proxyCIDR.length.wrappedValue)")
                             .fontDesign(.monospaced)
                         Image(systemName: "arrow.right")
@@ -290,10 +288,10 @@ struct NetworkEditView: View {
                     } else {
                         Text("Proxy:")
                             .foregroundStyle(.secondary)
+                        Spacer()
                         Text("\(proxyCIDR.cidr.wrappedValue)/\(proxyCIDR.length.wrappedValue)")
                             .fontDesign(.monospaced)
                     }
-                    Spacer()
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
