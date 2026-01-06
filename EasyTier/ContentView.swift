@@ -3,25 +3,23 @@ import SwiftData
 
 struct ContentView<Manager: NEManagerProtocol>: View {
     var body: some View {
-        NavigationStack {
-            TabView {
-                DashboardView<Manager>()
-                    .tabItem {
-                        Image(systemName: "list.bullet.below.rectangle")
-                        Text("Dashboard")
-                    }
-                LogView()
-                    .tabItem {
-                        Image(systemName: "rectangle.and.text.magnifyingglass")
-                        Text("Logs")
-                    }
-                Text("Not Implemented")
-                    .tabItem {
-                        Image(systemName: "gearshape")
-                            .environment(\.symbolVariants, .none)
-                        Text("Settings")
-                    }
-            }
+        TabView {
+            DashboardView<Manager>()
+                .tabItem {
+                    Image(systemName: "list.bullet.below.rectangle")
+                    Text("Dashboard")
+                }
+            LogView()
+                .tabItem {
+                    Image(systemName: "rectangle.and.text.magnifyingglass")
+                    Text("Logs")
+                }
+            Text("Not Implemented")
+                .tabItem {
+                    Image(systemName: "gearshape")
+                        .environment(\.symbolVariants, .none)
+                    Text("Settings")
+                }
         }
     }
 }

@@ -21,6 +21,8 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     @State var renameInput = ""
     @State var toRenameProfileId: UUID?
     
+    @State var errorMessage: String?
+    
     var selectedProfile: ProfileSummary? {
         guard let selectedProfileId else { return nil }
         return networks.first {
@@ -40,9 +42,9 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             if let selectedProfile {
                 @Bindable var profile = selectedProfile
                 if isConnected {
-                    StatusView<Manager>()
+                    StatusView<Manager>(name: selectedProfile.profile.networkName)
                 } else {
-                    NetworkEditView(summary: profile)
+                    NetworkEditView(profile: $profile.profile)
                         .disabled(isPending)
                 }
             } else {
@@ -63,7 +65,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     
     var sheetView: some View {
         NavigationStack {
-            List {
+            Form {
                 Section("Network") {
                     ForEach(networks, id: \.self) { item in
                         Button {
@@ -95,11 +97,13 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                         }
                     }
                     .onDelete { indexSet in
-                        for index in indexSet {
-                            if selectedProfile == networks[index] {
-                                selectedProfileId = nil
+                        withAnimation {
+                            for index in indexSet {
+                                if selectedProfile == networks[index] {
+                                    selectedProfileId = nil
+                                }
+                                context.delete(networks[index])
                             }
-                            context.delete(networks[index])
                         }
                     }
                 }
@@ -170,7 +174,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             mainView
             .navigationTitle(selectedProfile?.name ?? "Select Network")
             .toolbar {
@@ -187,7 +191,11 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                             if isConnected {
                                 await manager.disconnect()
                             } else if let selectedProfile {
-                                try? await manager.connect(profile: selectedProfile.profile)
+                                do {
+                                    try await manager.connect(profile: selectedProfile.profile)
+                                } catch {
+                                    errorMessage = error.localizedDescription
+                                }
                             }
                             isLocalPending = false
                         }
@@ -226,15 +234,16 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
         .sheet(isPresented: $showSheet) {
             sheetView
         }
+        .alert(item: $errorMessage) { msg in
+            Alert(title: Text("Error"), message: Text(msg))
+        }
     }
 }
 
 struct DashboardView_Previews: PreviewProvider {
     static var previews: some View {
         @StateObject var manager = MockNEManager()
-        NavigationStack {
-            DashboardView<MockNEManager>()
-        }
+        DashboardView<MockNEManager>()
         .modelContainer(
             try! ModelContainer(
                 for: Schema([ProfileSummary.self, NetworkProfile.self]),

@@ -227,10 +227,10 @@ struct NetworkConfig: Codable {
         }
         
         if !profile.proxyCIDRs.isEmpty {
-            self.proxyNetwork = profile.proxyCIDRs.map {
+            self.proxyNetwork = profile.proxyCIDRs.map { cidr in
                 ProxyNetworkConfig(
-                    cidr: "\($0.from)/\($0.length)",
-                    mappedCIDR: "\($0.to)/\($0.length)"
+                    cidr: "\(cidr.cidr)/\(cidr.length)",
+                    mappedCIDR: cidr.enableMapping ? cidr.mappedCIDR : nil,
                 )
             }
         }
@@ -238,8 +238,8 @@ struct NetworkConfig: Codable {
         if !profile.portForwards.isEmpty {
             self.portForward = profile.portForwards.map {
                 PortForwardConfig(
-                    bindAddr: "\($0.bindIP):\($0.bindPort)",
-                    dstAddr: "\($0.dstIP):\($0.dstPort)",
+                    bindAddr: "\($0.bindAddr):\($0.bindPort)",
+                    dstAddr: "\($0.destAddr):\($0.destPort)",
                     proto: $0.proto,
                 )
             }
@@ -270,7 +270,7 @@ struct NetworkConfig: Codable {
         
         var tempFlags = Flags()
         
-        tempFlags.devName = takeIfChanged(profile.devName, def.devName)
+//        tempFlags.devName = takeIfChanged(profile.devName, def.devName)
         tempFlags.mtu = profile.mtu
         tempFlags.latencyFirst = takeIfChanged(profile.latencyFirst, def.latencyFirst)
         tempFlags.enableExitNode = takeIfChanged(profile.enableExitNode, def.enableExitNode)

@@ -8,7 +8,7 @@ struct LogView: View {
     @Namespace private var bottomID
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading) {
                 // Log Content
                 ScrollView {
@@ -61,10 +61,7 @@ struct LogView: View {
         .onDisappear {
             tailer.stop()
         }
-        .alert(item: Binding<String?>(
-            get: { tailer.errorMessage },
-            set: { tailer.errorMessage = $0 }
-        )) { msg in
+        .alert(item: $tailer.errorMessage) { msg in
             Alert(title: Text("Error"), message: Text(msg))
         }
     }

@@ -7,6 +7,8 @@ struct StatusView<Manager: NEManagerProtocol>: View {
     @State var status: NetworkStatus?
     @State var selectedInfoKind: InfoKind = .peerInfo
     
+    var name: String
+    
     enum InfoKind: Identifiable, CaseIterable, CustomStringConvertible {
         var id: Self { self }
         case peerInfo
@@ -27,7 +29,7 @@ struct StatusView<Manager: NEManagerProtocol>: View {
             Section("Local") {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(status?.myNodeInfo?.hostname ?? "N/A")
+                        Text(name)
                             .font(.title2)
                             .fontWeight(.bold)
                         Text("v\(status?.myNodeInfo?.version ?? "N/A")")
@@ -443,7 +445,7 @@ struct TimelineRow: View {
 struct StatusView_Previews: PreviewProvider {
     static var previews: some View {
         @StateObject var manager = MockNEManager()
-        StatusView<MockNEManager>()
+        StatusView<MockNEManager>(name: "Example")
             .environmentObject(manager)
     }
 }
