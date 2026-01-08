@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 import NetworkExtension
 
+
 struct DashboardView<Manager: NEManagerProtocol>: View {
     @Environment(\.modelContext) var context
     @Query(sort: \ProfileSummary.createdAt) var networks: [ProfileSummary]
@@ -22,6 +23,8 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     @State var toRenameProfileId: UUID?
     
     @State var errorMessage: String?
+
+    @State private var darwinObserver: DarwinNotificationObserver? = nil
     
     var selectedProfile: ProfileSummary? {
         guard let selectedProfileId else { return nil }
@@ -223,6 +226,20 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             Task {
                 try? await manager.load()
             }
+            // Register Darwin notification observer for tunnel errors
+            darwinObserver = DarwinNotificationObserver(name: "site.yinmo.easytier.tunnel.error") { [weak manager] in
+                // Read the latest error from shared App Group defaults
+                let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
+                if let msg = defaults?.string(forKey: "TunnelLastError") {
+                    DispatchQueue.main.async {
+                        self.errorMessage = msg
+                    }
+                }
+            }
+            // Also fetch any existing error on appear
+            if let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier"), let msg = defaults.string(forKey: "TunnelLastError") {
+                self.errorMessage = msg
+            }
         }
         .onChange(of: selectedProfile) {
             lastSelected = selectedProfile?.id.uuidString
@@ -230,6 +247,10 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             Task {
                 await manager.updateName(name: selectedProfile.name, server: selectedProfile.id.uuidString)
             }
+        }
+        .onDisappear {
+            // Release observer to remove registration
+            darwinObserver = nil
         }
         .sheet(isPresented: $showSheet) {
             sheetView

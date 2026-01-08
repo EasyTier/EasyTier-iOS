@@ -1,8 +1,15 @@
 import os
 import NetworkExtension
+import Foundation
+
+let appName = "site.yinmo.easytier.tunnel"
+let appGroupID = "group.site.yinmo.easytier"
 
 class PacketTunnelProvider: NEPacketTunnelProvider {
-    let logger = Logger(subsystem: "site.yinmo.easytier.tunnel", category: "swift")
+    // Hold a weak reference to the current provider for C callback bridging
+    private static weak var current: PacketTunnelProvider?
+
+    let logger = Logger(subsystem: appName, category: "swift")
     
     private var tunnelFileDescriptor: Int32? {
         logger.warning("tunnelFileDescriptor: use fallback")
@@ -38,7 +45,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     func initRustLogger() {
-        let appGroupID = "group.site.yinmo.easytier"
         let filename = "easytier.log"
         let level = "info"
         
@@ -70,6 +76,40 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let str = String(cString: strPtr)
         free_string(strPtr)
         return str
+    }
+    
+    private func handleRustStop() {
+        // Called from FFI callback on an arbitrary thread
+        var msgPtr: UnsafePointer<CChar>? = nil
+        var errPtr: UnsafePointer<CChar>? = nil
+        var message: String = "EasyTier stopped unexpectedly"
+        let ret = get_latest_error_msg(&msgPtr, &errPtr)
+        if ret == 0, let msg = extractRustString(msgPtr) {
+            message = msg
+        } else if let err = extractRustString(errPtr) {
+            logger.error("handleRustStop() failed to get latest error: \(err)")
+        }
+        logger.error("handleRustStop(): \(message, privacy: .public)")
+        // Inform host app and cancel the tunnel on main queue
+        DispatchQueue.main.async {
+            self.notifyHostAppError(message)
+            self.cancelTunnelWithError(message)
+        }
+    }
+    
+    private func postDarwinNotification(_ name: String) {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterPostNotification(center, CFNotificationName(name as CFString), nil, nil, true)
+    }
+    
+    private func notifyHostAppError(_ message: String) {
+        // Persist the latest error into shared defaults so the host app can read details
+        if let defaults = UserDefaults(suiteName: appGroupID) {
+            defaults.set(message, forKey: "TunnelLastError")
+            defaults.synchronize()
+        }
+        // Wake the host app via Darwin notification
+        postDarwinNotification("\(appName).error")
     }
     
     func cidrToSubnetMask(_ cidr: Int) -> String? {
@@ -116,14 +156,17 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         logger.warning("startTunnel(): triggered")
+        PacketTunnelProvider.current = self
         guard let options else {
             logger.error("startTunnel() options is nil")
+            self.notifyHostAppError("options is nil")
             completionHandler("options is nil")
             return
         }
         
         guard let config = options["config"] as? String else {
             logger.error("startTunnel() config is empty")
+            self.notifyHostAppError("config is empty")
             completionHandler("config is empty")
             return
         }
@@ -135,19 +178,36 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         guard ret == 0 else {
             let err = extractRustString(errPtr)
             logger.error("startTunnel() failed to run: \(err ?? "Unknown", privacy: .public)")
+            self.notifyHostAppError(err ?? "Unknown")
             completionHandler(err)
             return
+        }
+        // Register FFI stop callback to capture crashes/stop events
+        let rustStopCallback: @convention(c) () -> Void = {
+            PacketTunnelProvider.current?.handleRustStop()
+        }
+        do {
+            var regErrPtr: UnsafePointer<CChar>? = nil
+            let regRet = register_stop_callback(rustStopCallback, &regErrPtr)
+            if regRet != 0 {
+                let regErr = extractRustString(regErrPtr)
+                logger.error("startTunnel() failed to register stop callback: \(regErr ?? "Unknown", privacy: .public)")
+            } else {
+                logger.info("startTunnel() registered FFI stop callback")
+            }
         }
 
         self.setTunnelNetworkSettings(prepareSettings(options)) { [weak self] error in
             if let error {
                 self?.logger.error("startTunnel() failed to setTunnelNetworkSettings: \(error, privacy: .public)")
+                self?.notifyHostAppError(error.localizedDescription)
                 completionHandler(error)
                 return
             }
             let tunFd = self?.packetFlow.value(forKeyPath: "socket.fileDescriptor") as? Int32 ?? self?.tunnelFileDescriptor
             guard let tunFd else {
                 self?.logger.error("startTunnel() no available tun fd")
+                self?.notifyHostAppError("no available tun fd")
                 completionHandler("no available tun fd")
                 return
             }
@@ -157,6 +217,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 guard ret == 0 else {
                     let err = self?.extractRustString(errPtr)
                     self?.logger.error("startTunnel() failed to set tun fd to \(tunFd): \(err, privacy: .public)")
+                    self?.notifyHostAppError(err ?? "Unknown")
                     completionHandler(err)
                     return
                 }
@@ -171,6 +232,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         if ret != 0 {
             logger.error("stopTunnel() failed")
         }
+        PacketTunnelProvider.current = nil
         completionHandler()
     }
     
@@ -200,3 +262,4 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 }
 
 extension String: @retroactive Error {}
+
