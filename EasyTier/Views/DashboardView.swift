@@ -19,10 +19,6 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
 
     @State var showNewNetworkAlert = false
     @State var newNetworkInput = ""
-
-    @State var showRenameAlert = false
-    @State var renameInput = ""
-    @State var toRenameProfileId: UUID?
     
     @State var errorMessage: TextItem?
 
@@ -47,9 +43,9 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             if let selectedProfile {
                 @Bindable var profile = selectedProfile
                 if isConnected {
-                    StatusView<Manager>(name: selectedProfile.profile.networkName)
+                    StatusView<Manager>()
                 } else {
-                    NetworkEditView(profile: $profile.profile)
+                    NetworkEditView(name: $profile.name, profile: $profile.profile)
                         .disabled(isPending)
                 }
             } else {
@@ -89,16 +85,6 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                                         .foregroundColor(.blue)
                                 }
                             }
-                        }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                toRenameProfileId = item.id
-                                showRenameAlert = true
-                            } label: {
-                                Image(systemName: "pencil")
-                                Text("Rename")
-                            }
-                            .tint(.orange)
                         }
                     }
                     .onDelete { indexSet in
@@ -154,24 +140,11 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                 Button(role: .confirm) {
                     let profile = ProfileSummary(
                         name: newNetworkInput.isEmpty
-                            ? "New Network" : newNetworkInput,
+                            ? "easytier" : newNetworkInput,
                         context: context
                     )
                     context.insert(profile)
                     selectedProfileId = profile.id
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .alert("Rename Network", isPresented: $showRenameAlert) {
-                TextField("New name of the network", text: $renameInput)
-                    .textInputAutocapitalization(.never)
-                Button(role: .cancel) {}
-                Button(role: .confirm) {
-                    if !renameInput.isEmpty, let toRenameProfileId {
-                        if let profile = (networks.first { $0.id == toRenameProfileId }) {
-                            profile.name = renameInput
-                        }
-                    }
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -197,7 +170,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                                 await manager.disconnect()
                             } else if let selectedProfile {
                                 do {
-                                    try await manager.connect(profile: selectedProfile.profile)
+                                    try await manager.connect(profile: selectedProfile)
                                 } catch {
                                     DashboardLogger.error("connect failed: \(error)")
                                     errorMessage = .init(error.localizedDescription)

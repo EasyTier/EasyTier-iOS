@@ -12,7 +12,7 @@ protocol NEManagerProtocol: ObservableObject {
     
     func load() async throws
     @MainActor
-    func connect(profile: NetworkProfile) async throws
+    func connect(profile: ProfileSummary) async throws
     func disconnect() async
     func fetchRunningInfo(_ callback: @escaping ((NetworkStatus) -> Void))
     func updateName(name: String, server: String) async
@@ -114,7 +114,7 @@ class NEManager: NEManagerProtocol {
         }
     }
     
-    func connect(profile: NetworkProfile) async throws {
+    func connect(profile: ProfileSummary) async throws {
         guard ![.connecting, .connected, .disconnecting, .reasserting].contains(status) else {
             Self.logger.warning("connect() failed: in \(String(describing: self.status)) status")
             return
@@ -135,7 +135,7 @@ class NEManager: NEManagerProtocol {
         try await manager.saveToPreferences()
         
         var options: [String : NSObject] = [:]
-        let config = NetworkConfig(from: profile)
+        let config = NetworkConfig(from: profile.profile, name: profile.name)
 
         let encoded: String
         do {
@@ -146,6 +146,7 @@ class NEManager: NEManagerProtocol {
         }
         Self.logger.debug("connect() config: \(encoded)")
         options["config"] = encoded as NSString
+        options["mtu"] = (config.flags?.mtu ?? 1300) as NSNumber
         do {
             try manager.connection.startVPNTunnel(options: options)
         } catch {
@@ -206,7 +207,7 @@ class MockNEManager: NEManagerProtocol {
     }
 
     // Simulate connecting
-    func connect(profile: NetworkProfile) async throws {
+    func connect(profile: ProfileSummary) async throws {
         status = .connecting
         // Simulate network delay
         try await Task.sleep(nanoseconds: 2_000_000_000)

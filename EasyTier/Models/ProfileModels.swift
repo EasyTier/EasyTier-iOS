@@ -92,7 +92,7 @@ final class NetworkProfile {
     var dhcp: Bool = true
     var virtualIPv4: CIDR = CIDR(ip: "10.144.144.0", length: "24")
     var hostname: String? = nil
-    var networkName: String = "easytier"
+//    var networkName: String = "easytier"
     var networkSecret: String = ""
 
     var networkingMethod: NetworkingMethod = NetworkingMethod.publicServer

@@ -4,8 +4,10 @@ let APP_GROUP_ID: String = "group.site.yinmo.easytier"
 let LOG_FILENAME: String = "easytier.log"
 
 struct LogView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var tailer = LogTailer()
     @Namespace private var bottomID
+    @State private var wasWatchingBeforeBackground = false
     
     var body: some View {
         NavigationStack {
@@ -56,10 +58,27 @@ struct LogView: View {
             }
         }
         .onAppear {
-            tailer.startWatching(appGroupID: APP_GROUP_ID, filename: LOG_FILENAME, fromStart: true)
+            if !tailer.isWatching {
+                tailer.startWatching(appGroupID: APP_GROUP_ID, filename: LOG_FILENAME, fromStart: true)
+            }
         }
         .onDisappear {
             tailer.stop()
+            wasWatchingBeforeBackground = false
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                if wasWatchingBeforeBackground {
+                    tailer.startWatching(appGroupID: APP_GROUP_ID, filename: LOG_FILENAME, fromStart: false)
+                    wasWatchingBeforeBackground = false
+                }
+            case .inactive, .background:
+                wasWatchingBeforeBackground = tailer.isWatching
+                tailer.stop()
+            @unknown default:
+                break
+            }
         }
         .alert(item: $tailer.errorMessage) { msg in
             Alert(title: Text("Error"), message: Text(msg.text))

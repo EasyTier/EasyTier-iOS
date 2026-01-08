@@ -49,7 +49,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     func initRustLogger() {
         let filename = "easytier.log"
-        let level = "info"
+        let level = "trace"
         
         guard var containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
             logger.error("initRustLogger() failed: App Group container not found")
@@ -163,9 +163,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
 
         if let dns = buildDNSServers(from: runningInfo, options: options) {
-            logger.info("prepareSettings() dns: \(dns)")
             settings.dnsSettings = NEDNSSettings(servers: dns)
         }
+        
+        settings.mtu = options["mtu"] as? NSNumber
+
+        logger.warning("prepareSettings() result: \(settings, privacy: .public)")
 
         return settings
     }
@@ -201,6 +204,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 }
             }
         }
+//        if let ipv4 = info.myNodeInfo?.virtualIPv4 {
+//            cidrs.insert("\(ipv4.address)/\(ipv4.networkLength)")
+//        }
         if let dns = buildDNSServers(from: info, options: nil),
            dns.contains(magicDNSIP) {
             cidrs.insert(magicDNSCIDR)
@@ -208,7 +214,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         if cidrs.isEmpty {
             logger.warning("buildIPv4Routes() no proxy cidrs")
         }
-        return cidrs.compactMap { cidr in
+        var routes: [NEIPv4Route] = cidrs.compactMap { cidr in
             let parts = cidr.split(separator: "/")
             guard parts.count == 2, let maskLen = Int(parts[1]),
                   let mask = cidrToSubnetMask(maskLen) else {
@@ -217,6 +223,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
             return NEIPv4Route(destinationAddress: String(parts[0]), subnetMask: mask)
         }
+//        routes.append(NEIPv4Route.default())
+        return routes
     }
 
     private func buildDNSServers(from info: RunningInfo?, options: [String: NSObject]?) -> [String]? {
@@ -243,7 +251,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     private func handleRunningInfoChanged() {
-        logger.info("handleRunningInfoChanged(): triggered")
+        logger.warning("handleRunningInfoChanged(): triggered")
         guard let options = lastOptions else {
             logger.warning("handleRunningInfoChanged() options is nil")
             return
@@ -350,7 +358,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
-        logger.info("stopTunnel(): triggered")
+        logger.warning("stopTunnel(): triggered")
         let ret = stop_network_instance()
         if ret != 0 {
             logger.error("stopTunnel() failed")
@@ -360,7 +368,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
-        logger.info("handleAppMessage(): triggered")
+        logger.warning("handleAppMessage(): triggered")
         // Add code here to handle the message.
         guard let completionHandler else { return }
         var infoPtr: UnsafePointer<CChar>? = nil

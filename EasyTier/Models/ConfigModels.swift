@@ -195,7 +195,7 @@ struct NetworkConfig: Codable {
     }
     
     
-    init(from profile: NetworkProfile) {
+    init(from profile: NetworkProfile, name: String) {
         // default profile for comparing
         let def = NetworkProfile(id: UUID())
         
@@ -206,8 +206,8 @@ struct NetworkConfig: Codable {
         self.instanceId = profile.id.uuidString.lowercased()
         self.hostname = profile.hostname
         self.dhcp = profile.dhcp
-        self.instanceName = profile.networkName
-        self.networkIdentity = NetworkIdentity(networkName: profile.networkName, networkSecret: profile.networkSecret)
+        self.instanceName = name
+        self.networkIdentity = NetworkIdentity(networkName: name, networkSecret: profile.networkSecret)
         
         if !profile.dhcp {
             self.ipv4 = profile.virtualIPv4.cidrString

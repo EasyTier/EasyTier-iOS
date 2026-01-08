@@ -4,14 +4,15 @@ import SwiftUI
 
 struct StatusView<Manager: NEManagerProtocol>: View {
     @EnvironmentObject var manager: Manager
+    @Environment(\.scenePhase) private var scenePhase
     @State var timerSubscription: AnyCancellable?
     @State var status: NetworkStatus?
     @State var selectedInfoKind: InfoKind = .peerInfo
     @State var selectedPeerRoutePair: NetworkStatus.PeerRoutePair?
     @State var showNodeInfo = false
     @State var showStunInfo = false
-    
-    var name: String
+
+    let timer = Timer.publish(every: 1, on: .main, in: .common)
     
     enum InfoKind: Identifiable, CaseIterable, CustomStringConvertible {
         var id: Self { self }
@@ -26,14 +27,12 @@ struct StatusView<Manager: NEManagerProtocol>: View {
         }
     }
 
-    let timer = Timer.publish(every: 1, on: .main, in: .common)
-
     var body: some View {
         Form {
             Section("Local") {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(name)
+                        Text(status?.myNodeInfo?.hostname ?? "N/A")
                             .font(.title2)
                             .fontWeight(.bold)
                         Text("v\(status?.myNodeInfo?.version ?? "N/A")")
@@ -118,17 +117,22 @@ struct StatusView<Manager: NEManagerProtocol>: View {
             }
         }
         .onAppear {
-            timerSubscription = timer.autoconnect().sink { _ in
-                manager.fetchRunningInfo { info in
-                    status = info
-                }
-            }
+            refreshStatus()
+            startTimer()
         }
         .onDisappear {
-            if let timerSubscription {
-                timerSubscription.cancel()
+            stopTimer()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                refreshStatus()
+                startTimer()
+            case .inactive, .background:
+                stopTimer()
+            @unknown default:
+                break
             }
-            timerSubscription = nil
         }
         .sheet(item: $selectedPeerRoutePair) { pair in
             PeerConnDetailSheet(pair: pair)
@@ -139,6 +143,24 @@ struct StatusView<Manager: NEManagerProtocol>: View {
         .sheet(isPresented: $showStunInfo) {
             StunInfoSheet(stunInfo: status?.myNodeInfo?.stunInfo)
         }
+    }
+
+    private func refreshStatus() {
+        manager.fetchRunningInfo { info in
+            status = info
+        }
+    }
+
+    private func startTimer() {
+        guard timerSubscription == nil else { return }
+        timerSubscription = timer.autoconnect().sink { _ in
+            refreshStatus()
+        }
+    }
+
+    private func stopTimer() {
+        timerSubscription?.cancel()
+        timerSubscription = nil
     }
 }
 
@@ -720,8 +742,7 @@ struct StunInfoSheet: View {
 struct StatusView_Previews: PreviewProvider {
     static var previews: some View {
         @StateObject var manager = MockNEManager()
-        StatusView<MockNEManager>(name: "Example")
+        StatusView<MockNEManager>()
             .environmentObject(manager)
     }
 }
-
