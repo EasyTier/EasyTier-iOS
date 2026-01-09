@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("logLevel") var logLevel: String = "info"
     @AppStorage("statusRefreshInterval") var statusRefreshInterval: Double = 1.0
+    @AppStorage("useRealDeviceNameAsDefault") var useRealDeviceNameAsDefault: Bool = true
 
     let logLevels = ["trace", "debug", "info", "warn", "error"]
 
@@ -21,6 +22,7 @@ struct SettingsView: View {
                             Text(level.uppercased()).tag(level)
                         }
                     }
+                    Toggle("Use Device Name as Default", isOn: $useRealDeviceNameAsDefault)
                     LabeledContent("Refresh Interval") {
                         HStack {
                             TextField(

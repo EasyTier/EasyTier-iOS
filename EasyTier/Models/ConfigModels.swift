@@ -1,7 +1,17 @@
 import Foundation
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct NetworkConfig: Codable {
+    private static var defaultDeviceName: String? {
+        #if canImport(UIKit)
+        return UIDevice.current.name
+        #else
+        return Host.current().localizedName
+        #endif
+    }
     struct Flags: Codable {
         var defaultProtocol: String?
         var devName: String?
@@ -198,13 +208,20 @@ struct NetworkConfig: Codable {
     init(from profile: NetworkProfile, name: String) {
         // default profile for comparing
         let def = NetworkProfile(id: UUID())
+        let useRealDeviceNameAsDefault = UserDefaults.standard.object(forKey: "useRealDeviceNameAsDefault") as? Bool ?? true
         
         func takeIfChanged<T: Equatable>(_ current: T, _ original: T) -> T? {
             return current != original ? current : nil
         }
         
         self.instanceId = profile.id.uuidString.lowercased()
-        self.hostname = profile.hostname
+        if let hostname = profile.hostname, !hostname.isEmpty {
+            self.hostname = hostname
+        } else if useRealDeviceNameAsDefault {
+            self.hostname = Self.defaultDeviceName
+        } else {
+            self.hostname = nil
+        }
         self.dhcp = profile.dhcp
         self.instanceName = name
         self.networkIdentity = NetworkIdentity(networkName: name, networkSecret: profile.networkSecret)
