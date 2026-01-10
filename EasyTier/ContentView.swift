@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 
+let columnWidth: CGFloat = 450
+
 struct ContentView<Manager: NEManagerProtocol>: View {
     var body: some View {
         TabView {

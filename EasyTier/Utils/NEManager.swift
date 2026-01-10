@@ -252,7 +252,7 @@ class MockNEManager: NEManagerProtocol {
                 publicIPv6: nil as NetworkStatus.IPv6Addr?,
                 interfaceIPv6s: []
             ),
-            stunInfo: NetworkStatus.STUNInfo(udpNATType: .openInternet, tcpNATType: .fullCone, lastUpdateTime: Date().timeIntervalSince1970 - 10),
+            stunInfo: NetworkStatus.STUNInfo(udpNATType: .symmetricEasyInc, tcpNATType: .fullCone, lastUpdateTime: Date().timeIntervalSince1970 - 10),
             listeners: [NetworkStatus.Url(url: "tcp://0.0.0.0:11010"), NetworkStatus.Url(url: "udp://0.0.0.0:11010")],
             vpnPortalCfg: "[Interface]\nPrivateKey = [REDACTED]\nAddress = 10.144.144.1/24\nListenPort = 22022\n\n[Peer]\nPublicKey = [REDACTED]\nAllowedIPs = 10.144.144.2/32"
         )

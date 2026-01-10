@@ -4,6 +4,11 @@ struct SettingsView: View {
     @AppStorage("logLevel") var logLevel: String = "info"
     @AppStorage("statusRefreshInterval") var statusRefreshInterval: Double = 1.0
     @AppStorage("useRealDeviceNameAsDefault") var useRealDeviceNameAsDefault: Bool = true
+    @State var selectedPane: SettingsPane?
+
+    enum SettingsPane: Hashable {
+        case license
+    }
 
     let logLevels = ["trace", "debug", "info", "warn", "error"]
 
@@ -15,45 +20,66 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("General") {
-                    Picker("Log Level", selection: $logLevel) {
-                        ForEach(logLevels, id: \.self) { level in
-                            Text(level.uppercased()).tag(level)
-                        }
-                    }
-                    LabeledContent("Refresh Interval") {
-                        HStack {
-                            TextField(
-                                "1.0",
-                                value: $statusRefreshInterval,
-                                formatter: NumberFormatter()
-                            )
-                            .contentShape(Rectangle())
-                            .multilineTextAlignment(.trailing)
-                            .keyboardType(.decimalPad)
-                            Text("s")
-                        }
-                    }
-                    Toggle("Use Device Name as Default", isOn: $useRealDeviceNameAsDefault)
-                }
-
-                Section("About") {
-                    LabeledContent("App") {
-                        Text("EasyTier")
-                    }
-                    LabeledContent("Version") {
-                        Text(appVersion)
-                    }
-                    Link("GitHub Repository", destination: URL(string: "https://github.com/EasyTier/EasyTier-iOS")!)
-                    NavigationLink("Open Source License") {
-                        openSourceLicenseView
+            AdaptiveNav(primaryColumn, secondaryColumn, showNav: $selectedPane)
+                .navigationTitle("Settings")
+                .navigationBarTitleDisplayMode(.inline)
+                .scrollDismissesKeyboard(.immediately)
+        }
+    }
+    
+    var primaryColumn: some View {
+        List(selection: $selectedPane) {
+            Section("General") {
+                Picker("Log Level", selection: $logLevel) {
+                    ForEach(logLevels, id: \.self) { level in
+                        Text(level.uppercased()).tag(level)
                     }
                 }
+                LabeledContent("Refresh Interval") {
+                    HStack {
+                        TextField(
+                            "1.0",
+                            value: $statusRefreshInterval,
+                            formatter: NumberFormatter()
+                        )
+                        .contentShape(Rectangle())
+                        .multilineTextAlignment(.trailing)
+                        .keyboardType(.decimalPad)
+                        Text("s")
+                    }
+                }
+                Toggle("Use Device Name as Default", isOn: $useRealDeviceNameAsDefault)
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .scrollDismissesKeyboard(.immediately)
+
+            Section("About") {
+                LabeledContent("App") {
+                    Text("EasyTier")
+                }
+                LabeledContent("Version") {
+                    Text(appVersion)
+                }
+                Link("GitHub Repository", destination: URL(string: "https://github.com/EasyTier/EasyTier-iOS")!)
+                
+                NavigationLink("Open Source License", value: SettingsPane.license)
+            }
+        }
+    }
+    
+    var secondaryColumn: some View {
+        Group {
+            switch selectedPane {
+            case .license:
+                openSourceLicenseView
+            case nil:
+                ZStack {
+                    Color(.systemGroupedBackground)
+                    Image(systemName: "network")
+                        .resizable()
+                        .frame(width: 128, height: 128)
+                        .foregroundStyle(Color.accentColor.opacity(0.2))
+                }
+                .ignoresSafeArea()
+            }
         }
     }
     
@@ -150,5 +176,7 @@ struct SettingsView: View {
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsView()
+        SettingsView()
+            .previewInterfaceOrientation(.landscapeLeft)
     }
 }

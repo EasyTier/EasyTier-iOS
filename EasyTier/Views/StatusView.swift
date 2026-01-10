@@ -5,6 +5,7 @@ import SwiftUI
 struct StatusView<Manager: NEManagerProtocol>: View {
     @EnvironmentObject var manager: Manager
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) var sizeClass
     @AppStorage("statusRefreshInterval") private var statusRefreshInterval: Double = 1.0
     @State var timerSubscription: AnyCancellable?
     @State var status: NetworkStatus?
@@ -27,92 +28,11 @@ struct StatusView<Manager: NEManagerProtocol>: View {
     }
 
     var body: some View {
-        Form {
-            Section("Local") {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(status?.myNodeInfo?.hostname ?? "N/A")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Text("v\(status?.myNodeInfo?.version ?? "N/A")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    StatusBadge(status: .init(status?.running))
-                }
-                .padding(.horizontal, 4)
-                
-                HStack(spacing: 42) {
-                    TrafficItem(
-                        trafficType: .Rx,
-                        value: (status?.sum(of: \.rxBytes)),
-                    )
-                    TrafficItem(
-                        trafficType: .Tx,
-                        value: (status?.sum(of: \.txBytes)),
-                    )
-                }
-
-                HStack(spacing: 42) {
-                    Button {
-                        showNodeInfo = true
-                    } label: {
-                        StatItem(
-                            label: "Virtual IP",
-                            value: status?.myNodeInfo?.virtualIPv4?.description ?? "N/A",
-                            icon: "network"
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button {
-                        showStunInfo = true
-                    } label: {
-                        StatItem(
-                            label: "NAT Type",
-                            value: status?.myNodeInfo?.stunInfo?.udpNATType.description ?? "N/A",
-                            icon: "shield"
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            if let error = status?.errorMsg {
-                Section("Error") {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                        Text(error)
-                    }
-                    .foregroundStyle(.red)
-                }
-            }
-
-            Section("Information") {
-                Picker(
-                    "Information to Show",
-                    selection: $selectedInfoKind
-                ) {
-                    ForEach(InfoKind.allCases) {
-                        kind in
-                        Text(kind.description).tag(kind)
-                    }
-                }
-                .pickerStyle(.palette)
-                switch (selectedInfoKind) {
-                case .peerInfo:
-                    ForEach(status?.peerRoutePairs ?? []) { pair in
-                        Button {
-                            selectedPeerRoutePair = pair
-                        } label: {
-                            PeerRowView(pair: pair)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                case .eventLog:
-                    TimelineLogPanel(events: status?.events ?? [])
-                }
+        Group {
+            if sizeClass == .regular {
+                doubleComlum
+            } else {
+                singleColumn
             }
         }
         .onAppear {
@@ -148,14 +68,145 @@ struct StatusView<Manager: NEManagerProtocol>: View {
             StunInfoSheet(stunInfo: status?.myNodeInfo?.stunInfo)
         }
     }
+    
+    var singleColumn: some View {
+        Form {
+            Section("Status") {
+                localStatus
+            }
 
-    private func refreshStatus() {
+            if let error = status?.errorMsg {
+                Section("Error") {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text(error)
+                    }
+                    .foregroundStyle(.red)
+                }
+            }
+
+            Section("Information") {
+                Picker(
+                    "Information to Show",
+                    selection: $selectedInfoKind
+                ) {
+                    ForEach(InfoKind.allCases) {
+                        kind in
+                        Text(kind.description).tag(kind)
+                    }
+                }
+                .pickerStyle(.palette)
+                switch (selectedInfoKind) {
+                case .peerInfo:
+                    peerInfo
+                case .eventLog:
+                    TimelineLogPanel(events: status?.events ?? [])
+                }
+            }
+        }
+    }
+    
+    var doubleComlum: some View {
+        HStack(spacing: 0) {
+            Form {
+                Section("Status") {
+                    localStatus
+                }
+
+                if let error = status?.errorMsg {
+                    Section("Error") {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text(error)
+                        }
+                        .foregroundStyle(.red)
+                    }
+                }
+                
+                Section("Peer Info") {
+                    peerInfo
+                }
+            }
+            .frame(maxWidth: columnWidth)
+            Form {
+                Section("Event Log") {
+                    TimelineLogPanel(events: status?.events ?? [])
+                }
+            }
+        }
+    }
+    
+    var localStatus: some View {
+        Group {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(status?.myNodeInfo?.hostname ?? "N/A")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Text("v\(status?.myNodeInfo?.version ?? "N/A")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                StatusBadge(status: .init(status?.running))
+            }
+            .padding(.horizontal, 4)
+            
+            HStack(spacing: 42) {
+                TrafficItem(
+                    trafficType: .Rx,
+                    value: (status?.sum(of: \.rxBytes)),
+                )
+                TrafficItem(
+                    trafficType: .Tx,
+                    value: (status?.sum(of: \.txBytes)),
+                )
+            }
+
+            HStack(spacing: 42) {
+                Button {
+                    showNodeInfo = true
+                } label: {
+                    StatItem(
+                        label: "Virtual IP",
+                        value: status?.myNodeInfo?.virtualIPv4?.description ?? "N/A",
+                        icon: "network"
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                Button {
+                    showStunInfo = true
+                } label: {
+                    StatItem(
+                        label: "NAT Type",
+                        value: status?.myNodeInfo?.stunInfo?.udpNATType.description ?? "N/A",
+                        icon: "shield"
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+    
+    var peerInfo: some View {
+        ForEach(status?.peerRoutePairs ?? []) { pair in
+            Button {
+                selectedPeerRoutePair = pair
+            } label: {
+                PeerRowView(pair: pair)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    func refreshStatus() {
         manager.fetchRunningInfo { info in
             status = info
         }
     }
 
-    private func startTimer() {
+    func startTimer() {
         guard timerSubscription == nil else { return }
         let interval = max(0.2, statusRefreshInterval)
         timerSubscription = Timer.publish(every: interval, on: .main, in: .common)
@@ -751,5 +802,9 @@ struct StatusView_Previews: PreviewProvider {
         @StateObject var manager = MockNEManager()
         StatusView<MockNEManager>()
             .environmentObject(manager)
+        
+        StatusView<MockNEManager>()
+            .environmentObject(manager)
+            .previewInterfaceOrientation(.landscapeLeft)
     }
 }

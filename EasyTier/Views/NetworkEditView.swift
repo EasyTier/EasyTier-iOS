@@ -1,21 +1,47 @@
 import SwiftUI
 
 struct NetworkEditView: View {
+    @Environment(\.horizontalSizeClass) var sizeClass
     @Binding var name: String
     @Binding var profile: NetworkProfile
     @State var showProxyCIDREditor = false
     @State var editingProxyCIDR: NetworkProfile.ProxyCIDR?
+    @State var selectedPane: EditPane?
 
+    enum EditPane: Hashable {
+        case advanced
+        case portForwards
+    }
+    
     var body: some View {
-        Form {
+        AdaptiveNav(primaryColumn, secondaryColumn, showNav: $selectedPane)
+    }
+    
+    var primaryColumn: some View {
+        List(selection: $selectedPane) {
             basicSettings
-
-            NavigationLink("Advanced Settings") {
+            NavigationLink("Advanced Settings", value: EditPane.advanced)
+            NavigationLink("Port Forwards", value: EditPane.portForwards)
+        }
+        .scrollDismissesKeyboard(.immediately)
+    }
+    
+    var secondaryColumn: some View {
+        Group {
+            switch selectedPane {
+            case .advanced:
                 advancedSettings
-            }
-
-            NavigationLink("Port Forwards") {
+            case .portForwards:
                 portForwardsSettings
+            case nil:
+                ZStack {
+                    Color(.systemGroupedBackground)
+                    Image(systemName: "network")
+                        .resizable()
+                        .frame(width: 128, height: 128)
+                        .foregroundStyle(Color.accentColor.opacity(0.2))
+                }
+                .ignoresSafeArea()
             }
         }
         .scrollDismissesKeyboard(.immediately)
@@ -223,7 +249,6 @@ struct NetworkEditView: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
-        .navigationTitle("Advanced Settings")
         .sheet(isPresented: $showProxyCIDREditor) {
             proxyCIDREditor
         }
@@ -277,7 +302,6 @@ struct NetworkEditView: View {
             })
         }
         .scrollDismissesKeyboard(.immediately)
-        .navigationTitle("Port Forwards")
     }
     
     var proxyCIDRsSettings: some View {
@@ -374,5 +398,10 @@ struct NetworkConfigurationView_Previews: PreviewProvider {
         NavigationStack {
             NetworkEditView(name: $name, profile: $profile)
         }
+        
+        NavigationStack {
+            NetworkEditView(name: $name, profile: $profile)
+        }
+        .previewInterfaceOrientation(.landscapeLeft)
     }
 }

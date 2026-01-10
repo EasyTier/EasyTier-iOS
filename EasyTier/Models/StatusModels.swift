@@ -23,8 +23,8 @@ struct NetworkStatus: Codable {
             case .portRestricted: "PortRestricted"
             case .symmetric: "Symmetric"
             case .symUDPFirewall: "Symmetric UDP Firewall"
-            case .symmetricEasyInc: "Symmetric Easy Inc"
-            case .symmetricEasyDec: "Symmetric Easy Dec"
+            case .symmetricEasyInc: "Symmetric Port Increase"
+            case .symmetricEasyDec: "Symmetric Port Decrease"
             }
         }
     }
