@@ -178,7 +178,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     var body: some View {
         NavigationStack {
             mainView
-            .navigationTitle(selectedProfile?.name ?? "select_network")
+                .navigationTitle(selectedProfile?.name ?? String(localized: "select_network"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("select_network", systemImage: "chevron.up.chevron.down") {
