@@ -9,6 +9,7 @@ struct StatusView<Manager: NEManagerProtocol>: View {
     @AppStorage("statusRefreshInterval") private var statusRefreshInterval: Double = 1.0
     @State var timerSubscription: AnyCancellable?
     @State var status: NetworkStatus?
+    
     @State var selectedInfoKind: InfoKind = .peerInfo
     @State var selectedPeerRoutePair: NetworkStatus.PeerRoutePair?
     @State var showNodeInfo = false
@@ -350,15 +351,18 @@ struct PeerRowView: View {
 struct TrafficItem: View {
     let trafficType: TrafficType
     let value: Int?
+    
+    @State var diff: Double?
+    @State var lastTime: Date?
 
     enum TrafficType {
         case Tx
         case Rx
     }
     
-    var unifiedValue: Float {
-        guard let value else { return Float.nan }
-        let v = Float(value)
+    var unifiedValue: Double {
+        guard let diff else { return Double.nan }
+        let v = Double(diff)
         return switch abs(v) {
         case ..<1024:
             v
@@ -373,7 +377,7 @@ struct TrafficItem: View {
         }
     }
     var unit: String {
-        switch abs(value ?? 0) {
+        switch abs(diff ?? 0) {
         case ..<1024:
             "B/s"
         case ..<1048576:
@@ -419,6 +423,17 @@ struct TrafficItem: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: value) { oldValue, newValue in
+            guard let oldValue, let newValue else { return }
+            guard let lastTime else {
+                lastTime = Date()
+                return
+            }
+            let currentTime = Date()
+            let interval = currentTime.timeIntervalSince(lastTime)
+            self.lastTime = currentTime
+            diff = Double(newValue - oldValue) / interval
+        }
     }
 }
 
