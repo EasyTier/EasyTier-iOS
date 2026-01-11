@@ -256,7 +256,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=\"$HOME/.cargo/bin:$PATH\"\n\ncd \"${PROJECT_DIR}/Core\"\n\nif [ \"${ARCHS}\" = \"arm64\" ]; then\n    PREFIX=\"aarch64\"\nelse\n    PREFIX=\"x86_64\"\nfi\n\nif [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    POSTFIX=\"-sim\"\nelse\n    POSTFIX=\"\"\nfi\n\nTARGET=\"$PREFIX-apple-ios$POSTFIX\"\n\nif [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n    cargo build -p easytier-ios --target $TARGET\nelse\n    cargo build -p easytier-ios --target $TARGET --release\nfi\n";
+			shellScript = ". \"$HOME/.cargo/env\"\neval \"$(/opt/homebrew/bin/brew shellenv)\"\n\ncd \"${PROJECT_DIR}/Core\"\n\nif [ \"${ARCHS}\" = \"arm64\" ]; then\n    PREFIX=\"aarch64\"\nelse\n    PREFIX=\"x86_64\"\nfi\n\nif [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    POSTFIX=\"-sim\"\nelse\n    POSTFIX=\"\"\nfi\n\nTARGET=\"$PREFIX-apple-ios$POSTFIX\"\n\nif [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n    cargo build -p easytier-ios --target $TARGET\nelse\n    cargo build -p easytier-ios --target $TARGET --release\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
