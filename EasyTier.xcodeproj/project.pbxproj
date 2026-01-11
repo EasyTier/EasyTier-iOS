@@ -161,6 +161,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0558363B2F04D26700139811 /* Build configuration list for PBXNativeTarget "EasyTierNetworkExtension" */;
 			buildPhases = (
+				058FD11E2F1376D800580896 /* Install Rust */,
 				05B61F3E2F04D57D00646DDC /* Build EasyTier Core */,
 				0558362A2F04D26600139811 /* Sources */,
 				0558362B2F04D26600139811 /* Frameworks */,
@@ -239,6 +240,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		058FD11E2F1376D800580896 /* Install Rust */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Install Rust";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export PATH=\"$HOME/.cargo/bin:$PATH\"\n\nif ! command -v rustc &> /dev/null\nthen\n    echo \"Rust not found. Installing Rust...\"\n    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y\nfi\n";
+		};
 		05B61F3E2F04D57D00646DDC /* Build EasyTier Core */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -256,7 +276,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "eval \"$(/opt/homebrew/bin/brew shellenv)\"\nPATH=\"/opt/homebrew/opt/rustup/bin:$PATH\"\n\ncd \"${PROJECT_DIR}/Core\"\n\nif [ \"${ARCHS}\" = \"arm64\" ]; then\n    PREFIX=\"aarch64\"\nelse\n    PREFIX=\"x86_64\"\nfi\n\nif [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    POSTFIX=\"-sim\"\nelse\n    POSTFIX=\"\"\nfi\n\nTARGET=\"$PREFIX-apple-ios$POSTFIX\"\n\nif [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n    cargo build -p easytier-ios --target $TARGET\nelse\n    cargo build -p easytier-ios --target $TARGET --release\nfi\n";
+			shellScript = "export PATH=\"$HOME/.cargo/bin:$PATH\"\n\ncd \"${PROJECT_DIR}/Core\"\n\nif [ \"${ARCHS}\" = \"arm64\" ]; then\n    PREFIX=\"aarch64\"\nelse\n    PREFIX=\"x86_64\"\nfi\n\nif [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    POSTFIX=\"-sim\"\nelse\n    POSTFIX=\"\"\nfi\n\nTARGET=\"$PREFIX-apple-ios$POSTFIX\"\n\nif [ \"${CONFIGURATION}\" = \"Debug\" ]; then\n    cargo build -p easytier-ios --target $TARGET\nelse\n    cargo build -p easytier-ios --target $TARGET --release\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -410,7 +430,7 @@
 				CODE_SIGN_ENTITLEMENTS = EasyTier/EasyTier.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = Y8RH943F65;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -464,7 +484,7 @@
 				CODE_SIGN_ENTITLEMENTS = EasyTier/EasyTier.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = Y8RH943F65;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -516,7 +536,7 @@
 				CODE_SIGN_ENTITLEMENTS = EasyTierNetworkExtension/EasyTierNetworkExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = Y8RH943F65;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -568,7 +588,7 @@
 				CODE_SIGN_ENTITLEMENTS = EasyTierNetworkExtension/EasyTierNetworkExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = Y8RH943F65;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
