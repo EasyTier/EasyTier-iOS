@@ -294,7 +294,7 @@ struct PeerRowView: View {
                         Text(text)
                     }
                 }
-                .labelIconToTitleSpacing(0)
+                .compatibleLabelSpacing(0)
                 .lineLimit(1)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -431,7 +431,7 @@ struct StatItem: View {
             Label(label, systemImage: icon)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .labelIconToTitleSpacing(2)
+                .compatibleLabelSpacing(2)
             Text(value)
                 .font(.subheadline)
                 .fontWeight(.medium)
@@ -806,5 +806,15 @@ struct StatusView_Previews: PreviewProvider {
         StatusView<MockNEManager>()
             .environmentObject(manager)
             .previewInterfaceOrientation(.landscapeLeft)
+    }
+}
+
+extension View {
+    func compatibleLabelSpacing(_ spacing: CGFloat) -> some View {
+        if #available(iOS 26.0, *) {
+            return self.labelIconToTitleSpacing(spacing)
+        } else {
+            return self
+        }
     }
 }

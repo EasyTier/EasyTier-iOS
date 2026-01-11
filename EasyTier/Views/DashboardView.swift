@@ -72,6 +72,16 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
         }
     }
     
+    func createProfile() {
+        let profile = ProfileSummary(
+            name: newNetworkInput.isEmpty
+                ? "easytier" : newNetworkInput,
+            context: context
+        )
+        context.insert(profile)
+        selectedProfileId = profile.id
+    }
+    
     var sheetView: some View {
         NavigationStack {
             Form {
@@ -154,17 +164,13 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             .alert("New Network", isPresented: $showNewNetworkAlert) {
                 TextField("Name of the new network", text: $newNetworkInput)
                     .textInputAutocapitalization(.never)
-                Button(role: .cancel) {}
-                Button(role: .confirm) {
-                    let profile = ProfileSummary(
-                        name: newNetworkInput.isEmpty
-                            ? "easytier" : newNetworkInput,
-                        context: context
-                    )
-                    context.insert(profile)
-                    selectedProfileId = profile.id
+                if #available(iOS 26.0, *) {
+                    Button(role: .cancel) {}
+                    Button("Create", role: .confirm, action: createProfile)
+                } else {
+                    Button("Cancel") {}
+                    Button("Create", action: createProfile)
                 }
-                .buttonStyle(.borderedProminent)
             }
         }
     }
