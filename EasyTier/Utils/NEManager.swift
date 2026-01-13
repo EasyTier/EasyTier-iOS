@@ -55,16 +55,15 @@ class NEManager: NEManagerProtocol {
                 }
                 
                 // Sync VPN connection status to App Group for Control Widget
-                let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
-                let isConnected = self.status == .connected
-                defaults?.set(isConnected, forKey: "VPNIsConnected")
-                defaults?.synchronize()
-                
-                // Reload Control Center Widget to reflect new state
-                if #available(iOS 18.0, *) {
-                    ControlCenter.shared.reloadControls(ofKind: "site.yinmo.easytier.ControlWidgets")
-                }
+                self.syncWidgetState()
             }
+        }
+    }
+    
+    // Notify Control Widget to refresh its state
+    private func syncWidgetState() {
+        if #available(iOS 18.0, *) {
+            ControlCenter.shared.reloadControls(ofKind: "site.yinmo.easytier.ControlWidgets")
         }
     }
     
@@ -173,6 +172,20 @@ class NEManager: NEManagerProtocol {
         if let routes = config.routes {
             options["routes"] = NSArray(array: routes.map { $0 as NSString })
         }
+        
+        // Save config to App Group for Widget use
+        let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
+        var configDict: [String: String] = [:]
+        for (key, value) in options {
+            if let strValue = value as? String {
+                configDict[key] = strValue
+            }
+        }
+        if let configData = try? JSONEncoder().encode(configDict) {
+            defaults?.set(configData, forKey: "LastVPNConfig")
+            defaults?.synchronize()
+        }
+        
         do {
             try manager.connection.startVPNTunnel(options: options)
         } catch {
@@ -180,6 +193,8 @@ class NEManager: NEManagerProtocol {
             throw error
         }
         Self.logger.info("connect() started")
+        // Immediately sync widget state after initiating connection
+        syncWidgetState()
     }
     
     func disconnect() async {
@@ -188,6 +203,8 @@ class NEManager: NEManagerProtocol {
             return
         }
         manager.connection.stopVPNTunnel()
+        // Immediately sync widget state after initiating disconnection
+        syncWidgetState()
     }
     
     func updateName(name: String, server: String) async {
