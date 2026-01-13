@@ -13,6 +13,9 @@
     "/" : {
       "shouldTranslate" : false
     },
+    "%@" : {
+
+    },
     "%@ ms" : {
       "shouldTranslate" : false
     },
@@ -500,6 +503,38 @@
         }
       }
     },
+    "connect_easytier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect EasyTier"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 EasyTier"
+          }
+        }
+      }
+    },
+    "connect_to_easytier_network" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect to an EasyTier network"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接到 EasyTier 网络"
+          }
+        }
+      }
+    },
     "connection_%@" : {
       "localizations" : {
         "en" : {
@@ -512,6 +547,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "连接 %@"
+          }
+        }
+      }
+    },
+    "connection_failed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection failed: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接失败：%@"
           }
         }
       }
@@ -823,6 +874,38 @@
         }
       }
     },
+    "disconnect_easytier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect EasyTier"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "断开 EasyTier"
+          }
+        }
+      }
+    },
+    "disconnect_from_easytier_network" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect from EasyTier network"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从 EasyTier 网络断开"
+          }
+        }
+      }
+    },
     "download" : {
       "localizations" : {
         "en" : {
@@ -844,6 +927,22 @@
     },
     "EasyTier" : {
       "shouldTranslate" : false
+    },
+    "easytier_network" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EasyTier Network"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EasyTier 网络"
+          }
+        }
+      }
     },
     "EasyTier-iOS" : {
       "shouldTranslate" : false
@@ -1807,6 +1906,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂无连接详情。"
+          }
+        }
+      }
+    },
+    "no_network_profile_found" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No EasyTier network profile found"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到 EasyTier 网络配置"
           }
         }
       }
@@ -2786,6 +2901,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "TCP NAT 类型"
+          }
+        }
+      }
+    },
+    "toggle_easytier" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle EasyTier"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换 EasyTier"
+          }
+        }
+      }
+    },
+    "toggle_easytier_network_connection" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle EasyTier network connection"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换 EasyTier 网络连接"
           }
         }
       }
