@@ -95,12 +95,13 @@ func fetchRunningInfo() -> RunningInfo? {
 }
 
 func buildIPv4Routes(info: RunningInfo?, options: [String : NSObject]) -> [NEIPv4Route] {
-    guard let info else { return [] }
     var cidrs = Set<RunningIPv4CIDR>()
-    for route in info.routes {
-        for cidr in route.proxyCIDRs {
-            if let normalized = normalizeCIDR(cidr) {
-                cidrs.insert(normalized)
+    if let routes = info?.routes {
+        for route in routes {
+            for cidr in route.proxyCIDRs {
+                if let normalized = normalizeCIDR(cidr) {
+                    cidrs.insert(normalized)
+                }
             }
         }
     }
@@ -115,7 +116,7 @@ func buildIPv4Routes(info: RunningInfo?, options: [String : NSObject]) -> [NEIPv
     if let ipv4 = options["ipv4"] as? String, let cidr = RunningIPv4CIDR(from: ipv4) {
         cidrs.insert(.init(address: ipv4MaskedSubnet(cidr), length: cidr.networkLength))
     }
-    if let ipv4 = info.myNodeInfo?.virtualIPv4 {
+    if let ipv4 = info?.myNodeInfo?.virtualIPv4 {
         cidrs.insert(.init(address: ipv4MaskedSubnet(ipv4), length: ipv4.networkLength))
     }
     if let enable = options["magicDNS"] as? Bool, enable {
