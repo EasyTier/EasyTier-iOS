@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import NetworkExtension
+import WidgetKit
 
 import TOMLKit
 import os
@@ -51,6 +52,17 @@ class NEManager: NEManagerProtocol {
                 self.connectedDate = self.connection?.connectedDate
                 if self.status == .invalid {
                     self.manager = nil
+                }
+                
+                // Sync VPN connection status to App Group for Control Widget
+                let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
+                let isConnected = self.status == .connected
+                defaults?.set(isConnected, forKey: "VPNIsConnected")
+                defaults?.synchronize()
+                
+                // Reload Control Center Widget to reflect new state
+                if #available(iOS 18.0, *) {
+                    ControlCenter.shared.reloadControls(ofKind: "site.yinmo.easytier.ControlWidgets")
                 }
             }
         }

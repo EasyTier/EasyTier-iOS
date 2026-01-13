@@ -1,4 +1,5 @@
-EasyTier.xcodeproj/project.xcworkspace/xcuserdata/
+xcuserdata
+build.log
 compile_commands.json
 
 CLAUDE.md

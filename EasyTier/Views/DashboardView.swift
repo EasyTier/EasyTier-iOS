@@ -31,6 +31,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     @State var errorMessage: TextItem?
 
     @State private var darwinObserver: DNObserver? = nil
+    @State private var widgetToggleObserver: DNObserver? = nil
 
     var selectedProfile: ProfileSummary? {
         guard let selectedProfileId else { return nil }
@@ -238,6 +239,34 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                     }
                 }
             }
+            
+            // Register Darwin notification observer for Control Widget toggle
+            widgetToggleObserver = DNObserver(name: "site.yinmo.easytier.toggleVPN") {
+                let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
+                let desiredState = defaults?.bool(forKey: "VPNDesiredState") ?? false
+                
+                DispatchQueue.main.async {
+                    if desiredState {
+                        // Connect using selected profile or first available
+                        guard let profile = self.selectedProfile ?? self.networks.first else {
+                            DashboardLogger.warning("No profile available for widget toggle")
+                            return
+                        }
+                        Task {
+                            do {
+                                try await self.manager.connect(profile: profile)
+                            } catch {
+                                DashboardLogger.error("Widget toggle connect failed: \(error.localizedDescription)")
+                            }
+                        }
+                    } else {
+                        // Disconnect
+                        Task {
+                            await self.manager.disconnect()
+                        }
+                    }
+                }
+            }
         }
         .onChange(of: selectedProfile) {
             lastSelected = selectedProfile?.id.uuidString
@@ -247,8 +276,9 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             }
         }
         .onDisappear {
-            // Release observer to remove registration
+            // Release observers to remove registration
             darwinObserver = nil
+            widgetToggleObserver = nil
         }
         .fileImporter(
             isPresented: $showImportPicker,
