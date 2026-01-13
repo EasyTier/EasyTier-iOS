@@ -13,9 +13,6 @@
     "/" : {
       "shouldTranslate" : false
     },
-    "%@ ms" : {
-      "shouldTranslate" : false
-    },
     "%@/%@" : {
       "localizations" : {
         "en" : {
@@ -26,6 +23,9 @@
         }
       },
       "shouldTranslate" : false
+    },
+    "%lld ms" : {
+
     },
     "0" : {
       "shouldTranslate" : false
@@ -1640,13 +1640,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The modification of the log level will only take effect after restarting the core.\nThe logs exported here are from the running Network Extension and should be distinguished from the core logs exported in the Logs tab."
+            "value" : "The logs exported here are from the running Network Extension and should be distinguished from the core logs exported in the Logs tab."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "日志等级的修改需要在重启核心后才能生效。\n此处导出的日志为 Network Extension 的完整日志，仅能在运行时导出，应与“日志”标签页中导出的核心日志加以区分。"
+            "state" : "needs_review",
+            "value" : "此处导出的日志为 Network Extension 的完整日志，仅能在运行时导出，应与“日志”标签页中导出的核心日志加以区分。"
           }
         }
       }

@@ -39,7 +39,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     }
 
     var isConnected: Bool {
-        [.connected, .disconnecting].contains(manager.status)
+        [.connected, .disconnecting, .reasserting].contains(manager.status)
     }
     var isPending: Bool {
         isLocalPending || [.connecting, .disconnecting, .reasserting].contains(manager.status)

@@ -58,6 +58,7 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
                         Text(level.uppercased()).tag(level)
                     }
                 }
+                .disabled(manager.status != .disconnected)
                 Button(action: {
                     exportOSLog()
                 }) {
@@ -69,7 +70,7 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
                         }
                     }
                 }
-                .disabled(isExporting || manager.status != .connected)
+                .disabled(isExporting || manager.status == .disconnected)
             } header: {
                 Text("logging")
             } footer: {

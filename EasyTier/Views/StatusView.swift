@@ -230,14 +230,6 @@ struct PeerRowView: View {
         pair.route.featureFlag?.isPublicServer ?? false
     }
 
-    var latency: Double? {
-        let latencies = pair.peer?.conns.compactMap {
-            $0.stats?.latencyUs
-        }
-        guard let latencies else { return nil }
-        return Double(latencies.reduce(0, +)) / Double(latencies.count)
-    }
-
     var lossRate: Double? {
         let lossRates = pair.peer?.conns.compactMap {
             $0.lossRate
@@ -305,17 +297,15 @@ struct PeerRowView: View {
 
             // Metrics
             VStack(alignment: .trailing, spacing: 4) {
-                if let latency {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.fill")
-                            .font(.caption2)
-                        Text("\(String(format: "%.1f", latency / 1000.0)) ms")
-                            .font(.callout)
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
-                    }
-                    .foregroundStyle(latencyColor(latency))
+                HStack(spacing: 4) {
+                    Image(systemName: "bolt.fill")
+                        .font(.caption2)
+                    Text("\(pair.route.pathLatency) ms")
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                        .monospacedDigit()
                 }
+                .foregroundStyle(latencyColor(pair.route.pathLatency))
 
                 if let lossRate {
                     let lossPercent = String(format: "%.0f", lossRate * 100)
@@ -331,10 +321,10 @@ struct PeerRowView: View {
         }
     }
 
-    func latencyColor(_ us: Double) -> Color {
-        switch us {
-        case 0..<100_000: return .green
-        case 100_000..<200_000: return .orange
+    func latencyColor(_ ms: Int) -> Color {
+        switch ms {
+        case 0..<100: return .green
+        case 100..<200: return .orange
         default: return .red
         }
     }
