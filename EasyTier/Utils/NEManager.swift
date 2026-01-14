@@ -3,6 +3,7 @@ import Combine
 import NetworkExtension
 import WidgetKit
 
+import EasyTierShared
 import TOMLKit
 import os
 
@@ -13,7 +14,7 @@ protocol NEManagerProtocol: ObservableObject {
     
     func load() async throws
     @MainActor
-    func connect(profile: ProfileSummary) async throws
+    func connect() async throws
     func disconnect() async
     func fetchRunningInfo(_ callback: @escaping ((NetworkStatus) -> Void))
     func updateName(name: String, server: String) async
@@ -154,8 +155,8 @@ class NEManager: NEManagerProtocol {
         }
     }
     
-    static func generateOptions(_ profile: ProfileSummary) throws -> [String : NSObject] {
-        var options: [String : NSObject] = [:]
+    static func generateOptions(_ profile: ProfileSummary) throws -> EasyTierOptions {
+        var options = EasyTierOptions()
         let config = NetworkConfig(from: profile.profile, name: profile.name)
 
         let encoded: String
@@ -166,50 +167,46 @@ class NEManager: NEManagerProtocol {
             throw error
         }
         Self.logger.debug("connect() config: \(encoded)")
-        options["config"] = encoded as NSString
+        options.config = encoded
         if let ipv4 = config.ipv4 {
-            options["ipv4"] = ipv4 as NSString
+            options.ipv4 = ipv4
         }
         if let ipv6 = config.ipv6 {
-            options["ipv6"] = ipv6 as NSString
+            options.ipv6 = ipv6
         }
         if let mtu = config.flags?.mtu {
-            options["mtu"] = mtu as NSNumber
+            options.mtu = mtu
         }
         if let routes = config.routes {
-            options["routes"] = NSArray(array: routes.map { $0 as NSString })
+            options.routes = routes
         }
-        if let logLevel = UserDefaults.standard.string(forKey: "logLevel") {
-            options["logLevel"] = logLevel as NSString
+        if let logLevel = UserDefaults.standard.string(forKey: "logLevel"),
+           let logLevel = LogLevel.init(rawValue: logLevel) {
+            options.logLevel = logLevel
         }
         if profile.profile.enableMagicDNS {
-            options["magicDNS"] = true as NSNumber
+            options.magicDNS = true
         }
         
-        let dnsArray: [NSString] = profile.profile.overrideDNS.map { $0.text as NSString }
+        let dnsArray: [String] = profile.profile.overrideDNS.compactMap { $0.text.isEmpty ? nil : $0.text }
         if !dnsArray.isEmpty {
-            options["dns"] = dnsArray as NSArray
+            options.dns = dnsArray
         }
         
         return options
     }
     
-    static func saveOptions(_ options: [String : NSObject]) {
+    static func saveOptions(_ options: EasyTierOptions) {
         // Save config to App Group for Widget use
-        let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
-        var configDict: [String: String] = [:]
-        for (key, value) in options {
-            if let strValue = value as? String {
-                configDict[key] = strValue
-            }
-        }
-        if let configData = try? JSONEncoder().encode(configDict) {
-            defaults?.set(configData, forKey: "LastVPNConfig")
+        let defaults = UserDefaults(suiteName: APP_GROUP_ID)
+        if let configData = try? JSONEncoder().encode(options) {
+            logger.debug("save options: \(configData.string ?? "nil")")
+            defaults?.set(configData, forKey: "VPNConfig")
             defaults?.synchronize()
         }
     }
     
-    func connect(profile: ProfileSummary) async throws {
+    func connect() async throws {
         guard ![.connecting, .connected, .disconnecting, .reasserting].contains(status) else {
             Self.logger.warning("connect() failed: in \(String(describing: self.status)) status")
             return
@@ -230,9 +227,7 @@ class NEManager: NEManagerProtocol {
         try await manager.saveToPreferences()
 
         do {
-            let options = try Self.generateOptions(profile)
-            Self.saveOptions(options)
-            try manager.connection.startVPNTunnel(options: options)
+            try manager.connection.startVPNTunnel()
         } catch {
             Self.logger.error("connect() start vpn tunnel failed: \(String(describing: error))")
             throw error
@@ -329,7 +324,7 @@ class MockNEManager: NEManagerProtocol {
     }
 
     // Simulate connecting
-    func connect(profile: ProfileSummary) async throws {
+    func connect() async throws {
         status = .connecting
         // Simulate network delay
         try await Task.sleep(nanoseconds: 2_000_000_000)

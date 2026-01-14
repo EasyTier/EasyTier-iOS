@@ -4,6 +4,7 @@ import NetworkExtension
 import os
 import TOMLKit
 import UniformTypeIdentifiers
+import EasyTierShared
 
 private let dashboardLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "App", category: "main.dashboard")
 
@@ -194,7 +195,9 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                                 await manager.disconnect()
                             } else if let selectedProfile {
                                 do {
-                                    try await manager.connect(profile: selectedProfile)
+                                    let options = try NEManager.generateOptions(selectedProfile)
+                                    NEManager.saveOptions(options)
+                                    try await manager.connect()
                                 } catch {
                                     dashboardLogger.error("connect failed: \(error)")
                                     errorMessage = .init(error.localizedDescription)
@@ -229,13 +232,16 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             // Register Darwin notification observer for tunnel errors
             darwinObserver = DNObserver(name: "site.yinmo.easytier.tunnel.error") {
                 // Read the latest error from shared App Group defaults
-                let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
+                let defaults = UserDefaults(suiteName: APP_GROUP_ID)
                 if let msg = defaults?.string(forKey: "TunnelLastError") {
                     DispatchQueue.main.async {
                         dashboardLogger.error("core stopped: \(msg)")
                         self.errorMessage = .init(msg)
                     }
                 }
+            }
+            if let selectedProfile, let options = try? NEManager.generateOptions(selectedProfile) {
+                NEManager.saveOptions(options)
             }
         }
         .onChange(of: selectedProfile) {

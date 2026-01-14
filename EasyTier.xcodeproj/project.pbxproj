@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		0526D7992F1762C300968CE2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 0526D7822F1762C300968CE2 /* Localizable.xcstrings */; };
 		0526D7B32F17656B00968CE2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 0526D7822F1762C300968CE2 /* Localizable.xcstrings */; };
+		0526D84A2F17D9AA00968CE2 /* libEasyTierShared.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0526D8422F17D98E00968CE2 /* libEasyTierShared.a */; };
+		0526D84B2F17E55300968CE2 /* libEasyTierShared.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0526D8422F17D98E00968CE2 /* libEasyTierShared.a */; };
 		055836312F04D26700139811 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 055836302F04D26700139811 /* NetworkExtension.framework */; };
 		055836392F04D26700139811 /* EasyTierNetworkExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0558362E2F04D26600139811 /* EasyTierNetworkExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		05B61F5C2F05056D00646DDC /* libeasytier_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 05B61F5B2F05056D00646DDC /* libeasytier_ios.a */; };
@@ -19,6 +21,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		0526D84C2F17E55300968CE2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 051C6A032F03AB0000AF29B1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0526D8412F17D98E00968CE2;
+			remoteInfo = EasyTierShared;
+		};
 		055836372F04D26700139811 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 051C6A032F03AB0000AF29B1 /* Project object */;
@@ -36,6 +45,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		0526D8402F17D98E00968CE2 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "include/$(PRODUCT_NAME)";
+			dstSubfolderSpec = 16;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0558363E2F04D26700139811 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
@@ -53,6 +71,7 @@
 /* Begin PBXFileReference section */
 		051C6A0B2F03AB0000AF29B1 /* EasyTier.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyTier.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0526D7822F1762C300968CE2 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		0526D8422F17D98E00968CE2 /* libEasyTierShared.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libEasyTierShared.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		0558362E2F04D26600139811 /* EasyTierNetworkExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EasyTierNetworkExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		055836302F04D26700139811 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		05B61F5B2F05056D00646DDC /* libeasytier_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libeasytier_ios.a; sourceTree = "<group>"; };
@@ -94,6 +113,11 @@
 			path = EasyTier;
 			sourceTree = "<group>";
 		};
+		0526D8432F17D98E00968CE2 /* EasyTierShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = EasyTierShared;
+			sourceTree = "<group>";
+		};
 		055836322F04D26700139811 /* EasyTierNetworkExtension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -117,7 +141,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0526D84A2F17D9AA00968CE2 /* libEasyTierShared.a in Frameworks */,
 				05B6235C2F08098100646DDC /* TOMLKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0526D83F2F17D98E00968CE2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,6 +158,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				05B61F5C2F05056D00646DDC /* libeasytier_ios.a in Frameworks */,
+				0526D84B2F17E55300968CE2 /* libEasyTierShared.a in Frameworks */,
 				055836312F04D26700139811 /* NetworkExtension.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -146,6 +179,7 @@
 			isa = PBXGroup;
 			children = (
 				051C6A0D2F03AB0000AF29B1 /* EasyTier */,
+				0526D8432F17D98E00968CE2 /* EasyTierShared */,
 				055836322F04D26700139811 /* EasyTierNetworkExtension */,
 				7A59B81E2F1641100069728D /* ControlWidgets */,
 				0526D7822F1762C300968CE2 /* Localizable.xcstrings */,
@@ -160,6 +194,7 @@
 				051C6A0B2F03AB0000AF29B1 /* EasyTier.app */,
 				0558362E2F04D26600139811 /* EasyTierNetworkExtension.appex */,
 				7A59B8192F1641100069728D /* ControlWidgetsExtension.appex */,
+				0526D8422F17D98E00968CE2 /* libEasyTierShared.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -204,6 +239,28 @@
 			productReference = 051C6A0B2F03AB0000AF29B1 /* EasyTier.app */;
 			productType = "com.apple.product-type.application";
 		};
+		0526D8412F17D98E00968CE2 /* EasyTierShared */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0526D8462F17D98E00968CE2 /* Build configuration list for PBXNativeTarget "EasyTierShared" */;
+			buildPhases = (
+				0526D83E2F17D98E00968CE2 /* Sources */,
+				0526D83F2F17D98E00968CE2 /* Frameworks */,
+				0526D8402F17D98E00968CE2 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0526D8432F17D98E00968CE2 /* EasyTierShared */,
+			);
+			name = EasyTierShared;
+			packageProductDependencies = (
+			);
+			productName = EasyTierShared;
+			productReference = 0526D8422F17D98E00968CE2 /* libEasyTierShared.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		0558362D2F04D26600139811 /* EasyTierNetworkExtension */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0558363B2F04D26700139811 /* Build configuration list for PBXNativeTarget "EasyTierNetworkExtension" */;
@@ -216,6 +273,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				0526D84D2F17E55300968CE2 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				055836322F04D26700139811 /* EasyTierNetworkExtension */,
@@ -256,10 +314,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					051C6A0A2F03AB0000AF29B1 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					0526D8412F17D98E00968CE2 = {
 						CreatedOnToolsVersion = 26.2;
 					};
 					0558362D2F04D26600139811 = {
@@ -290,6 +351,7 @@
 				051C6A0A2F03AB0000AF29B1 /* EasyTier */,
 				0558362D2F04D26600139811 /* EasyTierNetworkExtension */,
 				7A59B8182F1641100069728D /* ControlWidgetsExtension */,
+				0526D8412F17D98E00968CE2 /* EasyTierShared */,
 			);
 		};
 /* End PBXProject section */
@@ -350,6 +412,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0526D83E2F17D98E00968CE2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0558362A2F04D26600139811 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -367,6 +436,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		0526D84D2F17E55300968CE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0526D8412F17D98E00968CE2 /* EasyTierShared */;
+			targetProxy = 0526D84C2F17E55300968CE2 /* PBXContainerItemProxy */;
+		};
 		055836382F04D26700139811 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 0558362D2F04D26600139811 /* EasyTierNetworkExtension */;
@@ -604,6 +678,41 @@
 			};
 			name = Release;
 		};
+		0526D8472F17D98E00968CE2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y8RH943F65;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		0526D8482F17D98E00968CE2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = Y8RH943F65;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				OTHER_LDFLAGS = "-ObjC";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		0558363C2F04D26700139811 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -795,6 +904,15 @@
 			buildConfigurations = (
 				051C6A172F03AB0200AF29B1 /* Debug */,
 				051C6A182F03AB0200AF29B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0526D8462F17D98E00968CE2 /* Build configuration list for PBXNativeTarget "EasyTierShared" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0526D8472F17D98E00968CE2 /* Debug */,
+				0526D8482F17D98E00968CE2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

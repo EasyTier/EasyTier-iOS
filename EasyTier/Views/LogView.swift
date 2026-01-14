@@ -1,7 +1,5 @@
 import SwiftUI
-
-let APP_GROUP_ID: String = "group.site.yinmo.easytier"
-let LOG_FILENAME: String = "easytier.log"
+import EasyTierShared
 
 private func logFileURL() -> URL? {
     FileManager.default

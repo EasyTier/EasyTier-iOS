@@ -1,9 +1,10 @@
 import SwiftUI
 import NetworkExtension
+import EasyTierShared
 
 struct SettingsView<Manager: NEManagerProtocol>: View {
     @EnvironmentObject var manager: Manager
-    @AppStorage("logLevel") var logLevel: String = "info"
+    @AppStorage("logLevel") var logLevel: LogLevel = .info
     @AppStorage("statusRefreshInterval") var statusRefreshInterval: Double = 1.0
     @AppStorage("useRealDeviceNameAsDefault") var useRealDeviceNameAsDefault: Bool = true
     @State var selectedPane: SettingsPane?
@@ -15,8 +16,6 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
     enum SettingsPane: Hashable {
         case license
     }
-
-    let logLevels = ["trace", "debug", "info", "warn", "error"]
 
     var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? String(localized: "not_available")
@@ -54,8 +53,8 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
 
             Section {
                 Picker("log_level", selection: $logLevel) {
-                    ForEach(logLevels, id: \.self) { level in
-                        Text(level.uppercased()).tag(level)
+                    ForEach(LogLevel.allCases, id: \.self) { level in
+                        Text(level.rawValue.uppercased()).tag(level)
                     }
                 }
                 .disabled(manager.status != .disconnected)

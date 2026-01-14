@@ -3,6 +3,13 @@ import SwiftUI
 import WidgetKit
 import NetworkExtension
 
+@main
+struct ControlWidgetsBundle: WidgetBundle {
+    var body: some Widget {
+        ControlWidgetsControl()
+    }
+}
+
 struct ControlWidgetsControl: ControlWidget {
     static let kind: String = "site.yinmo.easytier.controlwidgets"
 
@@ -54,21 +61,7 @@ struct ToggleVPNIntent: SetValueIntent {
         }
 
         if value {
-            // Connect - need to load config from App Group
-            let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
-            guard let configData = defaults?.data(forKey: "LastVPNConfig"),
-                  let config = try? JSONDecoder().decode([String: String].self, from: configData) else {
-                // Try to start with empty options as fallback
-                try manager.connection.startVPNTunnel()
-                return .result()
-            }
-            
-            // Convert to NSDictionary for VPN options
-            var options: [String: NSObject] = [:]
-            for (key, val) in config {
-                options[key] = val as NSString
-            }
-            try manager.connection.startVPNTunnel(options: options)
+            try manager.connection.startVPNTunnel()
         } else {
             manager.connection.stopVPNTunnel()
         }

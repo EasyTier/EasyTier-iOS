@@ -59,30 +59,6 @@ enum IntentError: Swift.Error, CustomLocalizedStringResourceConvertible {
     }
 }
 
-@MainActor
-func getTargetProfile(_ entity: NetworkProfileEntity?) throws -> ProfileSummary {
-    let container = try ModelContainer(for: ProfileSummary.self, NetworkProfile.self)
-    let context = ModelContext(container)
-
-    if let entity = entity {
-        let id = entity.id
-        let descriptor = FetchDescriptor<ProfileSummary>(predicate: #Predicate { $0.id == id })
-        if let profile = try context.fetch(descriptor).first {
-            return profile
-        }
-    }
-
-    // Fallback: Use first available profile
-    let descriptor = FetchDescriptor<ProfileSummary>(sortBy: [SortDescriptor(\.createdAt)])
-    if let profile = try context.fetch(descriptor).first {
-        return profile
-    }
-
-    throw IntentError.noProfileFound
-}
-
-// MARK: - Intents
-
 struct ConnectIntent: AppIntent {
     static var title: LocalizedStringResource = "connect_easytier"
     static var description: IntentDescription = IntentDescription("connect_to_easytier_network")
@@ -93,10 +69,9 @@ struct ConnectIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        let profile = try getTargetProfile(network)
         let manager = NEManager()
         try await manager.load()
-        try await manager.connect(profile: profile)
+        try await manager.connect()
         return .result()
     }
 }
@@ -140,8 +115,7 @@ struct ToggleConnectIntent: AppIntent {
             await manager.disconnect()
             return .result()
         } else {
-            let profile = try getTargetProfile(network)
-            try await manager.connect(profile: profile)
+            try await manager.connect()
             return .result()
         }
     }

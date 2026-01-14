@@ -2,6 +2,8 @@ import Foundation
 import NetworkExtension
 import os
 
+import EasyTierShared
+
 let magicDNSCIDR = RunningIPv4CIDR(from: "100.100.100.101/32")!
 
 func tunnelFileDescriptor() -> Int32? {
@@ -38,22 +40,18 @@ func tunnelFileDescriptor() -> Int32? {
     return nil
 }
 
-func initRustLogger(level: String?) {
-    let filename = "easytier.log"
-    let allowedLevels = Set(["trace", "debug", "info", "warn", "error"])
-    let finalLevel = level.flatMap { allowedLevels.contains($0) ? $0 : nil } ?? "trace"
-    
-    guard var containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+func initRustLogger(level: LogLevel) {
+    guard var containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: APP_GROUP_ID) else {
         logger.error("initRustLogger() failed: App Group container not found")
         return
     }
-    containerURL.append(component: filename)
+    containerURL.append(component: LOG_FILENAME)
     let path = containerURL.path(percentEncoded: false)
     logger.info("initRustLogger() write to: \(path, privacy: .public)")
     
     var errPtr: UnsafePointer<CChar>? = nil
     let ret = path.withCString { pathPtr in
-        finalLevel.withCString { levelPtr in
+        level.rawValue.withCString { levelPtr in
             return init_logger(pathPtr, levelPtr, &errPtr)
         }
     }
@@ -94,64 +92,12 @@ func fetchRunningInfo() -> RunningInfo? {
     return nil
 }
 
-func prepareSettings(_ options: [String : NSObject]) -> NEPacketTunnelNetworkSettings {
-    let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-    let runningInfo = fetchRunningInfo()
-    if runningInfo == nil {
-        logger.warning("prepareSettings() running info is nil")
-    }
-
-    let ipv4Settings: NEIPv4Settings
-    if let ipv4 = runningInfo?.myNodeInfo?.virtualIPv4,
-       let mask = cidrToSubnetMask(ipv4.networkLength) {
-        ipv4Settings = NEIPv4Settings(
-            addresses: [ipv4.address.description],
-            subnetMasks: [mask]
-        )
-    } else if let ipv4 = options["ipv4"] as? String,
-              let cidr = RunningIPv4CIDR(from: ipv4),
-              let mask = cidrToSubnetMask(cidr.networkLength) {
-        ipv4Settings = NEIPv4Settings(
-            addresses: [cidr.address.description],
-            subnetMasks: [mask]
-        )
-    } else {
-        logger.warning("prepareSettings() no ipv4 address, skipping all")
-        return NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-    }
-    let routes = buildIPv4Routes(info: runningInfo, options: options)
-    if !routes.isEmpty {
-        logger.info("prepareSettings() ipv4 routes: \(routes.count)")
-        ipv4Settings.includedRoutes = routes
-        settings.ipv4Settings = ipv4Settings
-    }
-
-    if let ipv6CIDR = (options["ipv6"] as? String)?.split(separator: "/"), ipv6CIDR.count == 2 {
-        let ip = ipv6CIDR[0], cidrStr = ipv6CIDR[1]
-        if let cidr = Int(cidrStr) {
-            settings.ipv6Settings = .init(
-                addresses: [String(ip)],
-                networkPrefixLengths: [NSNumber(value: cidr)]
-            )
-        }
-    }
-
-    if let dns = buildDNSServers(options: options) {
-        settings.dnsSettings = dns
-    }
-    
-    settings.mtu = options["mtu"] as? NSNumber
-    logger.info("prepareSettings(): \(settings, privacy: .public)")
-
-    return settings
-}
-
-func buildIPv4Routes(info: RunningInfo?, options: [String : NSObject]) -> [NEIPv4Route] {
+func buildIPv4Routes(info: RunningInfo?, options: EasyTierOptions) -> [NEIPv4Route] {
     var cidrs = Set<RunningIPv4CIDR>()
-    if let manual = options["routes"] as? NSArray {
-        logger.info("buildIPv4Routes() found manual routes: \(manual.count)")
-        for route in manual {
-            if let cidr = route as? String, let normalized = normalizeCIDR(cidr) {
+    if !options.routes.isEmpty {
+        logger.info("buildIPv4Routes() found manual routes: \(options.routes.count)")
+        for route in options.routes {
+            if let normalized = normalizeCIDR(route) {
                 cidrs.insert(normalized)
             }
         }
@@ -165,13 +111,13 @@ func buildIPv4Routes(info: RunningInfo?, options: [String : NSObject]) -> [NEIPv
                 }
             }
         }
-        if let ipv4 = options["ipv4"] as? String, let cidr = RunningIPv4CIDR(from: ipv4) {
+        if let ipv4 = options.ipv4, let cidr = RunningIPv4CIDR(from: ipv4) {
             cidrs.insert(.init(address: ipv4MaskedSubnet(cidr), length: cidr.networkLength))
         }
         if let ipv4 = info?.myNodeInfo?.virtualIPv4 {
             cidrs.insert(.init(address: ipv4MaskedSubnet(ipv4), length: ipv4.networkLength))
         }
-        if let enable = options["magicDNS"] as? Bool, enable {
+        if options.magicDNS {
             cidrs.insert(magicDNSCIDR)
         }
         if cidrs.isEmpty {
@@ -187,22 +133,21 @@ func buildIPv4Routes(info: RunningInfo?, options: [String : NSObject]) -> [NEIPv
     }
 }
 
-func buildDNSServers(options: [String: NSObject]) -> NEDNSSettings? {
-    let enabledMagicDNS = options["magicDNS"] as? Bool ?? false
+func buildDNSServers(options: EasyTierOptions) -> NEDNSSettings? {
     var settings: NEDNSSettings
-    if let dns = options["dns"] as? NSArray, dns.count > 0 {
-        logger.info("buildDNSServers() use options dns: \(dns)")
-        settings = .init(servers: dns.compactMap { $0 as? String })
+    if !options.dns.isEmpty {
+        logger.info("buildDNSServers() use override dns: \(options.dns.count)")
+        settings = .init(servers: options.dns)
         settings.matchDomains = [""]
         settings.searchDomains = ["et.net"]
-    } else if enabledMagicDNS {
+    } else if options.magicDNS {
         settings = .init(servers: [magicDNSCIDR.address.description])
         settings.matchDomains = ["et.net"]
     } else {
         return nil
     }
     
-    if enabledMagicDNS {
+    if options.magicDNS {
         logger.info("buildDNSServers() enabled magic dns")
         settings.searchDomains = ["et.net"]
     }

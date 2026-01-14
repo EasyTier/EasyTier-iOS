@@ -3,16 +3,16 @@ import NetworkExtension
 import Network
 import Foundation
 
-let appName = "site.yinmo.easytier.tunnel"
-let appGroupID = "group.site.yinmo.easytier"
-let debounceTime = 2.0
+import EasyTierShared
+
+let debounceTime = 0.5
 
 enum ProviderCommand: String {
     case exportOSLog = "export_oslog"
     case runningInfo = "running_info"
 }
 
-let logger = Logger(subsystem: appName, category: "swift")
+let logger = Logger(subsystem: APP_BUNDLE_ID, category: "swift")
 
 private struct ProviderMessageResponse: Codable {
     let ok: Bool
@@ -23,8 +23,8 @@ private struct ProviderMessageResponse: Codable {
 class PacketTunnelProvider: NEPacketTunnelProvider {
     // Hold a weak reference to the current provider for C callback bridging
     private static weak var current: PacketTunnelProvider?
+    private var lastOptions: EasyTierOptions?
 
-    private var lastOptions: [String: NSObject] = [:]
     private let settingsUpdateQueue = DispatchQueue(label: "site.yinmo.easytier.tunnel.settings-update")
     private var isApplyingSettings = false
 
@@ -52,15 +52,15 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
     private func notifyHostAppError(_ message: String) {
         // Persist the latest error into shared defaults so the host app can read details
-        if let defaults = UserDefaults(suiteName: appGroupID) {
+        if let defaults = UserDefaults(suiteName: APP_GROUP_ID) {
             defaults.set(message, forKey: "TunnelLastError")
             defaults.synchronize()
         }
         // Wake the host app via Darwin notification
-        postDarwinNotification("\(appName).error")
+        postDarwinNotification("\(APP_BUNDLE_ID).error")
     }
     
-    private func prepareSettings(_ options: [String : NSObject]) -> NEPacketTunnelNetworkSettings {
+    private func prepareSettings(_ options: EasyTierOptions) -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         let runningInfo = fetchRunningInfo()
         if runningInfo == nil {
@@ -74,7 +74,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 addresses: [ipv4.address.description],
                 subnetMasks: [mask]
             )
-        } else if let ipv4 = options["ipv4"] as? String,
+        } else if let ipv4 = options.ipv4,
                   let cidr = RunningIPv4CIDR(from: ipv4),
                   let mask = cidrToSubnetMask(cidr.networkLength) {
             ipv4Settings = NEIPv4Settings(
@@ -92,7 +92,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             settings.ipv4Settings = ipv4Settings
         }
 
-        if let ipv6CIDR = (options["ipv6"] as? String)?.split(separator: "/"), ipv6CIDR.count == 2 {
+        if let ipv6CIDR = options.ipv6?.split(separator: "/"), ipv6CIDR.count == 2 {
             let ip = ipv6CIDR[0], cidrStr = ipv6CIDR[1]
             if let cidr = Int(cidrStr) {
                 settings.ipv6Settings = .init(
@@ -106,7 +106,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             settings.dnsSettings = dns
         }
         
-        settings.mtu = options["mtu"] as? NSNumber
+        settings.mtu = options.mtu as? NSNumber
         logger.info("prepareSettings(): \(settings, privacy: .public)")
 
         return settings
@@ -134,7 +134,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
     private func applyNetworkSettings() {
         Thread.sleep(forTimeInterval: debounceTime)
-        let settings = self.prepareSettings(self.lastOptions)
+        guard let options = lastOptions else {
+            logger.error("applyNetworkSettings() cannot get options")
+            return
+        }
+        let settings = self.prepareSettings(options)
         self.reasserting = true
         logger.info("applyNetworkSettings(): applying settings")
         self.setTunnelNetworkSettings(settings) { [weak self] error in
@@ -183,22 +187,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         logger.warning("startTunnel(): triggered")
         PacketTunnelProvider.current = self
-        guard let options else {
+        
+        let defaults = UserDefaults(suiteName: APP_GROUP_ID)
+        guard let configData = defaults?.data(forKey: "VPNConfig"),
+              let options = try? JSONDecoder().decode(EasyTierOptions.self, from: configData) else {
             logger.error("startTunnel() options is nil")
             self.notifyHostAppError("options is nil")
             completionHandler("options is nil")
             return
         }
+        self.lastOptions = options
         
-        guard let config = options["config"] as? String else {
-            logger.error("startTunnel() config is empty")
-            self.notifyHostAppError("config is empty")
-            completionHandler("config is empty")
-            return
-        }
-        initRustLogger(level: options["logLevel"] as? String ?? "info")
+        initRustLogger(level: options.logLevel)
         var errPtr: UnsafePointer<CChar>? = nil
-        let ret = config.withCString { strPtr in
+        let ret = options.config.withCString { strPtr in
             return run_network_instance(strPtr, &errPtr)
         }
         guard ret == 0 else {
@@ -223,7 +225,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
         }
         registerRunningInfoCallback()
-        self.lastOptions = options
         enqueueSettingsUpdate()
         completionHandler(nil)
     }
@@ -247,7 +248,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             switch command {
             case .exportOSLog:
                 do {
-                    let url = try OSLogExporter.exportToAppGroup(appGroupID: appGroupID)
+                    let url = try OSLogExporter.exportToAppGroup(appGroupID: APP_GROUP_ID)
                     let response = ProviderMessageResponse(ok: true, path: url.path, error: nil)
                     let data = try JSONEncoder().encode(response)
                     completionHandler(data)
