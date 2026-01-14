@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0526D7992F1762C300968CE2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 0526D7822F1762C300968CE2 /* Localizable.xcstrings */; };
+		0526D7B32F17656B00968CE2 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 0526D7822F1762C300968CE2 /* Localizable.xcstrings */; };
 		055836312F04D26700139811 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 055836302F04D26700139811 /* NetworkExtension.framework */; };
 		055836392F04D26700139811 /* EasyTierNetworkExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0558362E2F04D26600139811 /* EasyTierNetworkExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		05B61F5C2F05056D00646DDC /* libeasytier_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 05B61F5B2F05056D00646DDC /* libeasytier_ios.a */; };
@@ -50,6 +52,7 @@
 
 /* Begin PBXFileReference section */
 		051C6A0B2F03AB0000AF29B1 /* EasyTier.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyTier.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0526D7822F1762C300968CE2 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		0558362E2F04D26600139811 /* EasyTierNetworkExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EasyTierNetworkExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		055836302F04D26700139811 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		05B61F5B2F05056D00646DDC /* libeasytier_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libeasytier_ios.a; sourceTree = "<group>"; };
@@ -145,6 +148,7 @@
 				051C6A0D2F03AB0000AF29B1 /* EasyTier */,
 				055836322F04D26700139811 /* EasyTierNetworkExtension */,
 				7A59B81E2F1641100069728D /* ControlWidgets */,
+				0526D7822F1762C300968CE2 /* Localizable.xcstrings */,
 				0558362F2F04D26700139811 /* Frameworks */,
 				051C6A0C2F03AB0000AF29B1 /* Products */,
 			);
@@ -295,6 +299,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0526D7992F1762C300968CE2 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -309,6 +314,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0526D7B32F17656B00968CE2 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -711,11 +717,11 @@
 				CODE_SIGN_ENTITLEMENTS = ControlWidgets/ControlWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = Y8RH943F65;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = ControlWidgets;
+				INFOPLIST_KEY_CFBundleDisplayName = EasyTierControlWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -745,11 +751,11 @@
 				CODE_SIGN_ENTITLEMENTS = ControlWidgets/ControlWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = Y8RH943F65;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ControlWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = ControlWidgets;
+				INFOPLIST_KEY_CFBundleDisplayName = EasyTierControlWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (

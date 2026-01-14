@@ -1,10 +1,3 @@
-//
-//  ControlWidgetsControl.swift
-//  ControlWidgets
-//
-//  Created by YinMo19 on 2026/1/13.
-//
-
 import AppIntents
 import SwiftUI
 import WidgetKit
@@ -23,12 +16,12 @@ struct ControlWidgetsControl: ControlWidget {
                 isOn: isConnected,
                 action: ToggleVPNIntent()
             ) { isOn in
-                Label(isOn ? LocalizedStringResource("vpn_connected") : LocalizedStringResource("vpn_disconnected"), systemImage: "network")
-                    .controlWidgetActionHint(isOn ? LocalizedStringResource("vpn_disconnect") : LocalizedStringResource("vpn_connect"))
+                Label(isOn ? "vpn_connected" : "vpn_disconnected", systemImage: "network")
+                    .controlWidgetActionHint(isOn ? "vpn_disconnect" : "vpn_connect")
             }
         }
         .displayName("EasyTier")
-        .description(LocalizedStringResource("toggle_vpn_connection"))
+        .description("toggle_vpn_connection")
     }
 }
 
@@ -43,7 +36,7 @@ extension ControlWidgetsControl {
             guard let manager = managers.first else {
                 return false
             }
-            return manager.connection.status == .connected
+            return [.connecting, .connected, .reasserting].contains(manager.connection.status)
         }
     }
 }
@@ -51,7 +44,7 @@ extension ControlWidgetsControl {
 struct ToggleVPNIntent: SetValueIntent {
     static let title: LocalizedStringResource = "toggle_vpn"
 
-    @Parameter(title: LocalizedStringResource("vpn_connected"))
+    @Parameter(title: "vpn_connected")
     var value: Bool
 
     func perform() async throws -> some IntentResult {

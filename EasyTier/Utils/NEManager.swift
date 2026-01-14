@@ -154,26 +154,7 @@ class NEManager: NEManagerProtocol {
         }
     }
     
-    func connect(profile: ProfileSummary) async throws {
-        guard ![.connecting, .connected, .disconnecting, .reasserting].contains(status) else {
-            Self.logger.warning("connect() failed: in \(String(describing: self.status)) status")
-            return
-        }
-        guard !isLoading else {
-            Self.logger.warning("connect() failed: not loaded")
-            return
-        }
-        if status == .invalid {
-            _ = try await NEManager.install()
-            try await load()
-        }
-        guard let manager else {
-            Self.logger.error("connect() failed: manager is nil")
-            return
-        }
-        manager.isEnabled = true
-        try await manager.saveToPreferences()
-        
+    static func generateOptions(_ profile: ProfileSummary) throws -> [String : NSObject] {
         var options: [String : NSObject] = [:]
         let config = NetworkConfig(from: profile.profile, name: profile.name)
 
@@ -210,6 +191,10 @@ class NEManager: NEManagerProtocol {
             options["dns"] = dnsArray as NSArray
         }
         
+        return options
+    }
+    
+    static func saveOptions(_ options: [String : NSObject]) {
         // Save config to App Group for Widget use
         let defaults = UserDefaults(suiteName: "group.site.yinmo.easytier")
         var configDict: [String: String] = [:]
@@ -222,9 +207,31 @@ class NEManager: NEManagerProtocol {
             defaults?.set(configData, forKey: "LastVPNConfig")
             defaults?.synchronize()
         }
-        
-        
+    }
+    
+    func connect(profile: ProfileSummary) async throws {
+        guard ![.connecting, .connected, .disconnecting, .reasserting].contains(status) else {
+            Self.logger.warning("connect() failed: in \(String(describing: self.status)) status")
+            return
+        }
+        guard !isLoading else {
+            Self.logger.warning("connect() failed: not loaded")
+            return
+        }
+        if status == .invalid {
+            _ = try await NEManager.install()
+            try await load()
+        }
+        guard let manager else {
+            Self.logger.error("connect() failed: manager is nil")
+            return
+        }
+        manager.isEnabled = true
+        try await manager.saveToPreferences()
+
         do {
+            let options = try Self.generateOptions(profile)
+            Self.saveOptions(options)
             try manager.connection.startVPNTunnel(options: options)
         } catch {
             Self.logger.error("connect() start vpn tunnel failed: \(String(describing: error))")

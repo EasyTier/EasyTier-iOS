@@ -243,11 +243,17 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             guard let selectedProfile else { return }
             Task {
                 await manager.updateName(name: selectedProfile.name, server: selectedProfile.id.uuidString)
+                if let options = try? NEManager.generateOptions(selectedProfile) {
+                    NEManager.saveOptions(options)
+                }
             }
         }
         .onDisappear {
             // Release observer to remove registration
             darwinObserver = nil
+            if let selectedProfile, let options = try? NEManager.generateOptions(selectedProfile) {
+                NEManager.saveOptions(options)
+            }
         }
         .sheet(isPresented: $showManageSheet) {
             sheetView
