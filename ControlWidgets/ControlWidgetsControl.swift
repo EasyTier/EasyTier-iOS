@@ -23,12 +23,12 @@ struct ControlWidgetsControl: ControlWidget {
                 isOn: isConnected,
                 action: ToggleVPNIntent()
             ) { isOn in
-                Label(isOn ? "Connected" : "Disconnected", systemImage: "network")
-                    .controlWidgetActionHint(isOn ? "Disconnect" : "Connect")
+                Label(isOn ? LocalizedStringResource("vpn_connected") : LocalizedStringResource("vpn_disconnected"), systemImage: "network")
+                    .controlWidgetActionHint(isOn ? LocalizedStringResource("vpn_disconnect") : LocalizedStringResource("vpn_connect"))
             }
         }
         .displayName("EasyTier")
-        .description("Toggle VPN connection")
+        .description(LocalizedStringResource("toggle_vpn_connection"))
     }
 }
 
@@ -49,9 +49,9 @@ extension ControlWidgetsControl {
 }
 
 struct ToggleVPNIntent: SetValueIntent {
-    static let title: LocalizedStringResource = "Toggle VPN"
+    static let title: LocalizedStringResource = "toggle_vpn"
 
-    @Parameter(title: "Connected")
+    @Parameter(title: LocalizedStringResource("vpn_connected"))
     var value: Bool
 
     func perform() async throws -> some IntentResult {
