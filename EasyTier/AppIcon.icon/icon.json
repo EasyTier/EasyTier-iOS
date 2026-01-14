@@ -6,7 +6,7 @@
         {
           "blend-mode" : "normal",
           "fill" : {
-            "automatic-gradient" : "display-p3:0.02547,0.20504,0.84994,1.00000"
+            "automatic-gradient" : "display-p3:0.09798,0.35082,0.97266,1.00000"
           },
           "glass" : true,
           "image-name" : "icon.png",
