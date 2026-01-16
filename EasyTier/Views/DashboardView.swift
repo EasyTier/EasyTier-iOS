@@ -6,10 +6,11 @@ import TOMLKit
 import UniformTypeIdentifiers
 import EasyTierShared
 
-private let dashboardLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "App", category: "main.dashboard")
+private let dashboardLogger = Logger(subsystem: APP_BUNDLE_ID, category: "main.dashboard")
 
 struct DashboardView<Manager: NEManagerProtocol>: View {
     @Environment(\.modelContext) var context
+    @Environment(\.scenePhase) var scenePhase
     @Query(sort: \ProfileSummary.createdAt) var networks: [ProfileSummary]
 
     @EnvironmentObject var manager: Manager
@@ -244,22 +245,21 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                 NEManager.saveOptions(options)
             }
         }
+        .onChange(of: scenePhase) { _, _ in
+            saveOptions()
+        }
         .onChange(of: selectedProfile) {
             lastSelected = selectedProfile?.id.uuidString
             guard let selectedProfile else { return }
             Task {
                 await manager.updateName(name: selectedProfile.name, server: selectedProfile.id.uuidString)
-                if let options = try? NEManager.generateOptions(selectedProfile) {
-                    NEManager.saveOptions(options)
-                }
             }
+            saveOptions()
         }
         .onDisappear {
             // Release observer to remove registration
             darwinObserver = nil
-            if let selectedProfile, let options = try? NEManager.generateOptions(selectedProfile) {
-                NEManager.saveOptions(options)
-            }
+            saveOptions()
         }
         .sheet(isPresented: $showManageSheet) {
             sheetView
@@ -307,6 +307,15 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
         .alert(item: $errorMessage) { msg in
             dashboardLogger.error("received error: \(String(describing: msg))")
             return Alert(title: Text("common.error"), message: Text(msg.text))
+        }
+    }
+    
+    private func saveOptions() {
+        Task {
+            if let selectedProfile,
+               let options = try? NEManager.generateOptions(selectedProfile) {
+                NEManager.saveOptions(options)
+            }
         }
     }
 
