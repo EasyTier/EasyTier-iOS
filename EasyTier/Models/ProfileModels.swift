@@ -55,10 +55,6 @@ final class NetworkProfile {
         var destAddr: String = ""
         var destPort: Int = 0
         var proto: String = "tcp"
-        
-        private enum CodingKeys: String, CodingKey {
-            case bindAddr, bindPort, destAddr, destPort, proto
-        }
     }
 
     nonisolated
@@ -70,10 +66,6 @@ final class NetworkProfile {
         var cidrString: String {
             "\(ip)/\(length)"
         }
-        
-        private enum CodingKeys: String, CodingKey {
-            case ip, length
-        }
     }
 
     struct ProxyCIDR: Codable, Hashable, Identifiable {
@@ -82,10 +74,6 @@ final class NetworkProfile {
         var enableMapping: Bool = false
         var mappedCIDR: String = "0.0.0.0"
         var length: String = "32"
-        
-        private enum CodingKeys: String, CodingKey {
-            case cidr, enableMapping, mappedCIDR, length
-        }
     }
     
     @Attribute(.unique) var id: UUID
