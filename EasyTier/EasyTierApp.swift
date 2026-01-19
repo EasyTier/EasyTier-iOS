@@ -26,12 +26,7 @@ struct EasyTierApp: App {
 
     var body: some Scene {
         WindowGroup {
-            #if targetEnvironment(simulator)
-                ContentView<MockNEManager>()
-            #else
-                ContentView<NEManager>()
-            #endif
+            ContentView(manager: manager)
         }
-        .environmentObject(manager)
     }
 }

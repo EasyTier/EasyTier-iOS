@@ -31,7 +31,7 @@ struct LogView: View {
                             Text("").id(bottomID)
                         }
                         .padding()
-                        .onChange(of: tailer.logContent, initial: false) { _, _ in
+                        .onChange(of: tailer.logContent) { _ in
                             // Auto-scroll to bottom on update
                             withAnimation {
                                 proxy.scrollTo(bottomID, anchor: .bottom)
@@ -80,7 +80,7 @@ struct LogView: View {
             tailer.stop()
             wasWatchingBeforeBackground = false
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             switch newPhase {
             case .active:
                 if wasWatchingBeforeBackground {

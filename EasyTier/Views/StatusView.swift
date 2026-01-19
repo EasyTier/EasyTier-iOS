@@ -49,7 +49,7 @@ struct StatusView<Manager: NEManagerProtocol>: View {
         .onDisappear {
             stopTimer()
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             switch newPhase {
             case .active:
                 refreshStatus()
@@ -60,7 +60,7 @@ struct StatusView<Manager: NEManagerProtocol>: View {
                 break
             }
         }
-        .onChange(of: statusRefreshInterval) { _, _ in
+        .onChange(of: statusRefreshInterval) { _ in
             guard scenePhase == .active else { return }
             stopTimer()
             startTimer()
@@ -102,7 +102,7 @@ struct StatusView<Manager: NEManagerProtocol>: View {
                         Text(kind.description).tag(kind)
                     }
                 }
-                .pickerStyle(.palette)
+                .pickerStyle(.segmented)
                 switch (selectedInfoKind) {
                 case .peerInfo:
                     peerInfo
@@ -368,6 +368,7 @@ struct TrafficItem: View {
     
     @State var diff: Double?
     @State var lastTime: Date?
+    @State var previousValue: Int?
 
     enum TrafficType {
         case Tx
@@ -437,8 +438,8 @@ struct TrafficItem: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onChange(of: value) { oldValue, newValue in
-            guard let oldValue, let newValue else { return }
+        .onChange(of: value) { newValue in
+            guard let previousValue, let newValue else { return }
             guard let lastTime else {
                 lastTime = Date()
                 return
@@ -446,7 +447,8 @@ struct TrafficItem: View {
             let currentTime = Date()
             let interval = currentTime.timeIntervalSince(lastTime)
             self.lastTime = currentTime
-            diff = max(Double(newValue - oldValue) / interval, 0)
+            diff = max(Double(newValue - previousValue) / interval, 0)
+            $previousValue.wrappedValue = newValue
         }
     }
 }

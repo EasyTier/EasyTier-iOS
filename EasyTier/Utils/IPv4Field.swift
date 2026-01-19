@@ -47,7 +47,7 @@ struct IPv4Field: View {
         .onAppear {
             syncOctetsFromExternal()
         }
-        .onChange(of: ipAddress) { _, newValue in
+        .onChange(of: ipAddress) { newValue in
             if octets.joined(separator: ".") != newValue {
                 syncOctetsFromExternal()
             }

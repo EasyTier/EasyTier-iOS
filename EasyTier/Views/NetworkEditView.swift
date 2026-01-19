@@ -82,7 +82,7 @@ struct NetworkEditView: View {
                         Text(method.description).tag(method)
                     }
                 }
-                .pickerStyle(.palette)
+                .pickerStyle(.segmented)
 
                 switch profile.networkingMethod {
                 case .publicServer:
@@ -93,7 +93,7 @@ struct NetworkEditView: View {
                 case .manual:
                     ListEditor(newItemTitle: "common_text.add_peer", items: $profile.peerURLs, addItemFactory: { "" }, rowContent: {
                         TextField("example.peer_url", text: $0.text)
-                            .fontDesign(.monospaced)
+                            .font(.body.monospaced())
                     })
                 case .standalone:
                     EmptyView()
@@ -152,7 +152,7 @@ struct NetworkEditView: View {
             Section("listener_urls") {
                 ListEditor(newItemTitle: "common_text.add_listener_url", items: $profile.listenerURLs, addItemFactory: { "" }, rowContent: {
                     TextField("example.listener_url", text: $0.text)
-                        .fontDesign(.monospaced)
+                        .font(.body.monospaced())
                 })
             }
             
@@ -161,7 +161,7 @@ struct NetworkEditView: View {
                 if profile.enableRelayNetworkWhitelist {
                     ListEditor(newItemTitle: "common_text.add_network", items: $profile.relayNetworkWhitelist, addItemFactory: { "" }, rowContent: {
                         TextField("example.network_name", text: $0.text)
-                            .fontDesign(.monospaced)
+                            .font(.body.monospaced())
                     })
                 }
             } header: {
@@ -224,7 +224,7 @@ struct NetworkEditView: View {
             Section {
                 ListEditor(newItemTitle: "common_text.add_map_listener", items: $profile.mappedListeners, addItemFactory: { "" }, rowContent: {
                     TextField("example.mapped_listener_url", text: $0.text)
-                        .fontDesign(.monospaced)
+                        .font(.body.monospaced())
                 })
             } header: {
                 Text("mapped_listeners")
@@ -317,17 +317,17 @@ struct NetworkEditView: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text("\(proxyCIDR.cidr.wrappedValue)/\(proxyCIDR.length.wrappedValue)")
-                            .fontDesign(.monospaced)
+                            .font(.body.monospaced())
                         Image(systemName: "arrow.right")
                             .foregroundStyle(.secondary)
                         Text("\(proxyCIDR.mappedCIDR.wrappedValue)/\(proxyCIDR.length.wrappedValue)")
-                            .fontDesign(.monospaced)
+                            .font(.body.monospaced())
                     } else {
                         Text("proxy")
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text("\(proxyCIDR.cidr.wrappedValue)/\(proxyCIDR.length.wrappedValue)")
-                            .fontDesign(.monospaced)
+                            .font(.body.monospaced())
                     }
                 }
                 .contentShape(Rectangle())

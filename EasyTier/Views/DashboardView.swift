@@ -14,7 +14,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
         ProfileEntry(index: $0, profile: nil)
     }
 
-    @EnvironmentObject var manager: Manager
+    @ObservedObject var manager: Manager
 
     @AppStorage("lastSelected") var lastSelected: String?
     @AppStorage("profilesUseICloud") var profilesUseICloud: Bool = false
@@ -38,6 +38,10 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
 
     @State private var darwinObserver: DNObserver? = nil
     @State private var pendingSaveWorkItem: DispatchWorkItem? = nil
+
+    init(manager: Manager) {
+        _manager = ObservedObject(wrappedValue: manager)
+    }
 
     struct ProfileEntry: Identifiable, Equatable {
         var id: String { index.configName }
@@ -334,14 +338,14 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                 }
             }
         }
-        .onChange(of: scenePhase) { _, _ in
+        .onChange(of: scenePhase) { _ in
             Task { @MainActor in
                 await saveOptions()
                 await saveAllProfiles()
             }
         }
-        .onChange(of: selectedProfileId) { oldValue, newValue in
-            if let oldValue,
+        .onChange(of: selectedProfileId) { newValue in
+            if let oldValue = lastSelected,
                let oldIndex = profiles.firstIndex(where: { $0.id == oldValue }) {
                 Task { @MainActor in
                     await saveProfileIfNeeded(at: oldIndex)
@@ -360,7 +364,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                 }
             }
         }
-        .onChange(of: profilesUseICloud) { _, _ in
+        .onChange(of: profilesUseICloud) { _ in
             profiles = ProfileStore.loadIndexOrEmpty().map {
                 ProfileEntry(index: $0, profile: nil)
             }
@@ -369,7 +373,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                 await saveOptions()
             }
         }
-        .onChange(of: showManageSheet) { _, isPresented in
+        .onChange(of: showManageSheet) { isPresented in
             if isPresented {
                 profiles = ProfileStore.loadIndexOrEmpty().map {
                     ProfileEntry(index: $0, profile: nil)
@@ -667,7 +671,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
 struct DashboardView_Previews: PreviewProvider {
     static var previews: some View {
         @StateObject var manager = MockNEManager()
-        DashboardView<MockNEManager>()
+        DashboardView(manager: manager)
         .environmentObject(manager)
     }
 }

@@ -64,7 +64,7 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
                 Toggle("save_to_icloud", isOn: $profilesUseICloud)
                 Toggle("always_on", isOn: $manager.isAlwaysOnEnabled)
                     .disabled(manager.isLoading || isAlwaysOnUpdating)
-                    .onChange(of: manager.isAlwaysOnEnabled) { _, newValue in
+                    .onChange(of: manager.isAlwaysOnEnabled) { newValue in
                         updateAlwaysOn(newValue)
                     }
             }
@@ -161,8 +161,7 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
             
             You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
             """)
-                .font(.caption)
-                .fontDesign(.monospaced)
+                .font(.caption.monospaced())
             }
             Section("EasyTier") {
                 Text("""
@@ -231,8 +230,7 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
 
             If the Library as you received it specifies that a proxy can decide whether future versions of the GNU Lesser General Public License shall apply, that proxy's public statement of acceptance of any version is permanent authorization for you to choose that version for the Library.
             """)
-                .font(.caption)
-                .fontDesign(.monospaced)
+                .font(.caption.monospaced())
             }
         }
         .navigationTitle("about.license")

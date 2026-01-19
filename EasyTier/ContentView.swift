@@ -3,9 +3,11 @@ import SwiftUI
 let columnWidth: CGFloat = 450
 
 struct ContentView<Manager: NEManagerProtocol>: View {
+    @ObservedObject var manager: Manager
+    
     var body: some View {
         TabView {
-            DashboardView<Manager>()
+            DashboardView(manager: manager)
                 .tabItem {
                     Image(systemName: "list.bullet.below.rectangle")
                     Text("main.dashboard")
@@ -28,10 +30,8 @@ struct ContentView<Manager: NEManagerProtocol>: View {
 struct MainView_Previews: PreviewProvider {
     static var previews: some View {
         @StateObject var manager = MockNEManager()
-        ContentView<MockNEManager>()
-            .environmentObject(manager)
-        ContentView<MockNEManager>()
-            .environmentObject(manager)
+        ContentView(manager: manager)
+        ContentView(manager: manager)
             .previewInterfaceOrientation(.landscapeLeft)
     }
 }
