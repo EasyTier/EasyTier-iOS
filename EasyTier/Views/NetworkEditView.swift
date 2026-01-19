@@ -8,7 +8,8 @@ struct NetworkEditView: View {
     @State var editingProxyCIDR: NetworkProfile.ProxyCIDR?
     @State var selectedPane: EditPane?
 
-    enum EditPane: Hashable {
+    enum EditPane: Identifiable, Hashable {
+        var id: Self { self }
         case advanced
         case portForwards
     }

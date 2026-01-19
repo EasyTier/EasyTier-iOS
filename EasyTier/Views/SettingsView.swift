@@ -23,7 +23,8 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
     @State private var isExporting = false
     @State private var isAlwaysOnUpdating = false
 
-    enum SettingsPane: Hashable {
+    enum SettingsPane: Identifiable, Hashable {
+        var id: Self { self }
         case license
     }
 
@@ -112,8 +113,8 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
                 LabeledContent("version") {
                     Text(appVersion)
                 }
-                Link("about.privacy_policy", destination: URL(string: "https://easytier.cn/guide/privacy.html")!)
                 Link("about.homepage", destination: URL(string: "https://github.com/EasyTier/EasyTier-iOS")!)
+                Link("about.privacy_policy", destination: URL(string: "https://easytier.cn/guide/privacy.html")!)
                 
                 NavigationLink("about.license", value: SettingsPane.license)
             }

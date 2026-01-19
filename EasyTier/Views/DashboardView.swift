@@ -122,7 +122,11 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                         showNewNetworkAlert = true
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "document.badge.plus")
+                            if #available(iOS 18.0, *) {
+                                Image(systemName: "document.badge.plus")
+                            } else {
+                                Image(systemName: "plus.app")
+                            }
                             Text("profile.create_network")
                         }
                     }
@@ -130,7 +134,11 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                         presentEditInText()
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "long.text.page.and.pencil")
+                            if #available(iOS 18.4, *) {
+                                Image(systemName: "long.text.page.and.pencil")
+                            } else {
+                                Image(systemName: "square.and.pencil")
+                            }
                             Text("profile.edit_as_text")
                         }
                     }
@@ -138,7 +146,11 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                         showImportPicker = true
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "arrow.down.document")
+                            if #available(iOS 18.0, *) {
+                                Image(systemName: "arrow.down.document")
+                            } else {
+                                Image(systemName: "square.and.arrow.down")
+                            }
                             Text("profile.import_config")
                         }
                     }

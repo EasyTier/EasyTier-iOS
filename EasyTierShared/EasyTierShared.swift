@@ -30,9 +30,13 @@ public func connectWithManager(_ manager: NETunnelProviderManager, logger: Logge
     if let defaults = UserDefaults(suiteName: APP_GROUP_ID) {
         manager.protocolConfiguration?.includeAllNetworks = defaults.bool(forKey: "includeAllNetworks")
         manager.protocolConfiguration?.excludeLocalNetworks = defaults.bool(forKey: "excludeLocalNetworks")
-        manager.protocolConfiguration?.excludeCellularServices = defaults.bool(forKey: "excludeCellularServices")
-        manager.protocolConfiguration?.excludeAPNs = defaults.bool(forKey: "excludeAPNs")
-        manager.protocolConfiguration?.excludeDeviceCommunication = defaults.bool(forKey: "excludeDeviceCommunication")
+        if #available(iOS 16.4, *) {
+            manager.protocolConfiguration?.excludeCellularServices = defaults.bool(forKey: "excludeCellularServices")
+            manager.protocolConfiguration?.excludeAPNs = defaults.bool(forKey: "excludeAPNs")
+        }
+        if #available(iOS 17.4, *) {
+            manager.protocolConfiguration?.excludeDeviceCommunication = defaults.bool(forKey: "excludeDeviceCommunication")
+        }
         manager.protocolConfiguration?.enforceRoutes = defaults.bool(forKey: "enforceRoutes")
         if let logger {
             logger.debug("connect with protocol configuration: \(manager.protocolConfiguration)")

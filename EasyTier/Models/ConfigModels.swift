@@ -217,10 +217,6 @@ struct NetworkConfig: Codable {
         self.instanceId = profile.id.uuidString.lowercased()
         if let hostname = profile.hostname, !hostname.isEmpty {
             self.hostname = hostname
-        } else if UserDefaults.standard.bool(forKey: "useRealDeviceNameAsDefault") {
-            self.hostname = Self.defaultDeviceName
-        } else {
-            self.hostname = nil
         }
         self.dhcp = profile.dhcp
         self.instanceName = name
