@@ -5,8 +5,7 @@ import EasyTierShared
 let defaults = UserDefaults(suiteName: APP_GROUP_ID)
 
 struct SettingsView<Manager: NEManagerProtocol>: View {
-    
-    @EnvironmentObject var manager: Manager
+    @ObservedObject var manager: Manager
     @AppStorage("logLevel") var logLevel: LogLevel = .info
     @AppStorage("statusRefreshInterval") var statusRefreshInterval: Double = 1.0
     @AppStorage("useRealDeviceNameAsDefault") var useRealDeviceNameAsDefault: Bool = true
@@ -23,6 +22,10 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
     @State private var settingsErrorMessage: TextItem?
     @State private var isExporting = false
     @State private var isAlwaysOnUpdating = false
+    
+    init(manager: Manager) {
+        _manager = ObservedObject(wrappedValue: manager)
+    }
 
     enum SettingsPane: Identifiable, Hashable {
         var id: Self { self }
@@ -279,9 +282,9 @@ struct SettingsView<Manager: NEManagerProtocol>: View {
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         @StateObject var manager = MockNEManager()
-        SettingsView<MockNEManager>()
+        SettingsView(manager: manager)
             .environmentObject(manager)
-        SettingsView<MockNEManager>()
+        SettingsView(manager: manager)
             .previewInterfaceOrientation(.landscapeLeft)
             .environmentObject(manager)
     }

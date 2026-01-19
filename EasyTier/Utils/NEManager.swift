@@ -172,10 +172,9 @@ class NEManager: NEManagerProtocol {
         do {
             encoded = try TOMLEncoder().encode(config).string ?? ""
         } catch {
-            Self.logger.error("connect() generate config failed: \(String(describing: error))")
+            Self.logger.error("generateOptions() generate config failed: \(String(describing: error))")
             throw error
         }
-        Self.logger.debug("connect() config: \(encoded)")
         options.config = encoded
         if let ipv4 = config.ipv4 {
             options.ipv4 = ipv4

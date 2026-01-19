@@ -2,8 +2,7 @@ import AppIntents
 import NetworkExtension
 import SwiftUI
 
-// MARK: - App Entity
-
+@available(iOS 18.0, *)
 struct NetworkProfileEntity: AppEntity {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "easytier_network"
     static var defaultQuery = NetworkProfileQuery()
@@ -26,14 +25,15 @@ struct NetworkProfileEntity: AppEntity {
     }
 }
 
+@available(iOS 18.0, *)
 struct NetworkProfileQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [NetworkProfileEntity] {
         return await MainActor.run {
             let profiles = ProfileStore.loadIndexOrEmpty()
             return profiles
-                .filter { identifiers.contains($0.id) }
+                .filter { identifiers.contains($0) }
                 .map {
-                    return NetworkProfileEntity(id: $0.id, name: $0.configName)
+                    return NetworkProfileEntity(id: $0, name: $0)
                 }
         }
     }
@@ -42,14 +42,13 @@ struct NetworkProfileQuery: EntityQuery {
         return await MainActor.run {
             let profiles = ProfileStore.loadIndexOrEmpty()
             return profiles.map {
-                return NetworkProfileEntity(id: $0.id, name: $0.configName)
+                return NetworkProfileEntity(id: $0, name: $0)
             }
         }
     }
 }
 
-// MARK: - Helpers
-
+@available(iOS 18.0, *)
 enum IntentError: Swift.Error, CustomLocalizedStringResourceConvertible {
     case noProfileFound
     case connectionFailed(String)
@@ -64,6 +63,7 @@ enum IntentError: Swift.Error, CustomLocalizedStringResourceConvertible {
     }
 }
 
+@available(iOS 18.0, *)
 struct ConnectIntent: AppIntent {
     static var title: LocalizedStringResource = "connect_easytier"
     static var description: IntentDescription = IntentDescription("connect_to_easytier_network")
@@ -81,6 +81,7 @@ struct ConnectIntent: AppIntent {
     }
 }
 
+@available(iOS 18.0, *)
 struct DisconnectIntent: AppIntent {
     static var title: LocalizedStringResource = "disconnect_easytier"
     static var description: IntentDescription = IntentDescription("disconnect_from_easytier_network")
@@ -95,6 +96,7 @@ struct DisconnectIntent: AppIntent {
     }
 }
 
+@available(iOS 18.0, *)
 struct ToggleConnectIntent: AppIntent {
     static var title: LocalizedStringResource = "toggle_easytier"
     static var description: IntentDescription = IntentDescription("toggle_easytier_network_connection")
@@ -126,8 +128,7 @@ struct ToggleConnectIntent: AppIntent {
     }
 }
 
-// MARK: - Shortcuts Provider
-
+@available(iOS 18.0, *)
 struct EasyTierShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(

@@ -14,3 +14,18 @@ struct TextItem: Identifiable, Equatable, Codable, CustomStringConvertible, Expr
         self.text = text
     }
 }
+
+struct IdenticalTextItem: Identifiable, Equatable, Codable, CustomStringConvertible, ExpressibleByStringLiteral {
+    var id: String { self.text }
+    var text: String
+    
+    var description: String { text }
+    
+    init(_ text: String) {
+        self.text = text
+    }
+    
+    init(stringLiteral text: String) {
+        self.text = text
+    }
+}

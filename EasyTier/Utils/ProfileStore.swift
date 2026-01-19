@@ -28,14 +28,7 @@ final class ProfileDocument: UIDocument {
 }
 
 enum ProfileStore {
-    struct ProfileIndex: Identifiable, Equatable {
-        var configName: String
-        var fileURL: URL
-
-        var id: String { configName }
-    }
-
-    static func loadIndexOrEmpty() -> [ProfileIndex] {
+    static func loadIndexOrEmpty() -> [String] {
         do {
             return try loadIndex()
         } catch {
@@ -44,7 +37,7 @@ enum ProfileStore {
         }
     }
 
-    static func loadIndex() throws -> [ProfileIndex] {
+    static func loadIndex() throws -> [String] {
         let directoryURL = try profilesDirectoryURL()
         guard FileManager.default.fileExists(atPath: directoryURL.path) else {
             return []
@@ -54,19 +47,20 @@ enum ProfileStore {
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         )
-        var profiles: [ProfileIndex] = []
+        var profiles: [String] = []
         for fileURL in fileURLs where fileURL.pathExtension.lowercased() == "toml" {
             let configName = fileURL.deletingPathExtension().lastPathComponent
-            profiles.append(.init(configName: configName, fileURL: fileURL))
+            profiles.append(configName)
         }
-        return profiles.sorted { $0.configName.localizedStandardCompare($1.configName) == .orderedAscending }
+        return profiles.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
-    static func loadProfile(from index: ProfileIndex) async throws -> NetworkProfile {
-        guard FileManager.default.fileExists(atPath: index.fileURL.path) else {
+    static func loadProfile(named configName: String) async throws -> NetworkProfile {
+        let fileURL = try fileURL(forConfigName: configName)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
             throw CocoaError(.fileNoSuchFile)
         }
-        let document = ProfileDocument(fileURL: index.fileURL)
+        let document = ProfileDocument(fileURL: fileURL)
         try await openDocument(document)
         defer {
             Task {
@@ -77,9 +71,11 @@ enum ProfileStore {
         return NetworkProfile(from: config)
     }
 
-    static func save(_ profile: NetworkProfile, to fileURL: URL) async throws {
+    static func save(_ profile: NetworkProfile, named configName: String) async throws {
         let config = NetworkConfig(from: profile)
         let encoded = try TOMLEncoder().encode(config).string ?? ""
+        let fileURL = try fileURL(forConfigName: configName)
+        profileStoreLogger.debug("saving to \(fileURL.path): \(encoded)")
         let document = ProfileDocument(fileURL: fileURL)
         let fileExists = FileManager.default.fileExists(atPath: fileURL.path)
         if fileExists {
@@ -93,21 +89,20 @@ enum ProfileStore {
         }
     }
 
-    @discardableResult
-    static func renameProfileFile(from fileURL: URL, to configName: String) throws -> URL {
+    static func renameProfileFile(from configName: String, to newConfigName: String) throws {
         let directoryURL = try profilesDirectoryURL()
         try ensureDirectory(for: directoryURL)
-        let sanitizedName = sanitizedFileName(configName, fallback: fileURL.deletingPathExtension().lastPathComponent)
-        let targetURL = directoryURL.appendingPathComponent("\(sanitizedName).toml")
-        guard fileURL != targetURL else { return fileURL }
+        let sourceURL = directoryURL.appendingPathComponent("\(sanitizedFileName(configName, fallback: configName)).toml")
+        let targetURL = directoryURL.appendingPathComponent("\(sanitizedFileName(newConfigName, fallback: newConfigName)).toml")
+        guard sourceURL != targetURL else { return }
         if FileManager.default.fileExists(atPath: targetURL.path) {
             try FileManager.default.removeItem(at: targetURL)
         }
-        try FileManager.default.moveItem(at: fileURL, to: targetURL)
-        return targetURL
+        try FileManager.default.moveItem(at: sourceURL, to: targetURL)
     }
 
-    static func deleteProfile(at fileURL: URL) throws {
+    static func deleteProfile(named configName: String) throws {
+        let fileURL = try fileURL(forConfigName: configName)
         if FileManager.default.fileExists(atPath: fileURL.path) {
             try FileManager.default.removeItem(at: fileURL)
         }
@@ -136,7 +131,7 @@ enum ProfileStore {
     static func fileURL(forConfigName configName: String) throws -> URL {
         let directoryURL = try profilesDirectoryURL()
         try ensureDirectory(for: directoryURL)
-        let fileName = sanitizedFileName(configName, fallback: UUID().uuidString)
+        let fileName = sanitizedFileName(configName, fallback: configName)
         return directoryURL.appendingPathComponent("\(fileName).toml")
     }
 

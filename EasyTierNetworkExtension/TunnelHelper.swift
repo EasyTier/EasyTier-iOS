@@ -70,12 +70,11 @@ func tunnelFileDescriptor() -> Int32? {
 }
 
 func initRustLogger(level: LogLevel) {
-    guard var containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: APP_GROUP_ID) else {
+    guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: APP_GROUP_ID) else {
         logger.error("initRustLogger() failed: App Group container not found")
         return
     }
-    containerURL.append(component: LOG_FILENAME)
-    let path = containerURL.path(percentEncoded: false)
+    let path = containerURL.appendingPathComponent(LOG_FILENAME).path
     logger.info("initRustLogger() write to: \(path, privacy: .public)")
     
     var errPtr: UnsafePointer<CChar>? = nil

@@ -10,15 +10,13 @@ private let profileSaveDebounceInterval: TimeInterval = 0.5
 
 struct DashboardView<Manager: NEManagerProtocol>: View {
     @Environment(\.scenePhase) var scenePhase
-    @State private var profiles: [ProfileEntry] = ProfileStore.loadIndexOrEmpty().map {
-        ProfileEntry(index: $0, profile: nil)
-    }
-
     @ObservedObject var manager: Manager
-
+    
     @AppStorage("lastSelected") var lastSelected: String?
     @AppStorage("profilesUseICloud") var profilesUseICloud: Bool = false
-    @State var selectedProfileId: String?
+    
+    @State var selectedProfile: NetworkProfile?
+    @State var selectedProfileName: String?
     @State var isLocalPending = false
 
     @State var showManageSheet = false
@@ -36,32 +34,17 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
 
     @State var errorMessage: TextItem?
 
-    @State private var darwinObserver: DNObserver? = nil
-    @State private var pendingSaveWorkItem: DispatchWorkItem? = nil
-
+    @State var darwinObserver: DNObserver? = nil
+    @State var pendingSaveWorkItem: DispatchWorkItem? = nil
+    
     init(manager: Manager) {
         _manager = ObservedObject(wrappedValue: manager)
     }
 
     struct ProfileEntry: Identifiable, Equatable {
-        var id: String { index.configName }
-        var index: ProfileStore.ProfileIndex
+        var id: String { configName }
+        var configName: String
         var profile: NetworkProfile?
-    }
-
-    var selectedProfile: NetworkProfile? {
-        guard let selectedProfileId else { return nil }
-        return profiles.first { $0.id == selectedProfileId }?.profile
-    }
-
-    var selectedProfileIndex: Int? {
-        guard let selectedProfileId else { return nil }
-        return profiles.firstIndex { $0.id == selectedProfileId }
-    }
-
-    var selectedProfileTitle: String? {
-        guard let index = selectedProfileIndex else { return nil }
-        return profiles[index].index.configName
     }
 
     var isConnected: Bool {
@@ -73,18 +56,20 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
 
     var mainView: some View {
         Group {
-            if let index = selectedProfileIndex {
-                if let profile = profiles[index].profile {
-                    if isConnected {
-                        StatusView<Manager>(profile.networkName)
-                    } else {
-                        NetworkEditView(profile: bindingForProfile(at: index))
-                            .disabled(isPending)
-                    }
+            if let $profile = Binding($selectedProfile) {
+                if isConnected {
+                    StatusView<Manager>($profile.wrappedValue.networkName)
                 } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(.systemGroupedBackground))
+                    NetworkEditView(profile: Binding(
+                        get: { $profile.wrappedValue },
+                        set: { newValue in
+                            $profile.wrappedValue = newValue
+                            if selectedProfileName != nil {
+                                scheduleSave()
+                            }
+                        }
+                    ))
+                        .disabled(isPending)
                 }
             } else {
                 VStack {
@@ -104,18 +89,13 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
 
     func createProfile() {
         let baseName = newNetworkInput.isEmpty ? String(localized: "new_network") : newNetworkInput
-        guard let sanitizedName = validatedConfigName(baseName, excludingIndex: nil) else { return }
+        guard let sanitizedName = availableConfigName(baseName) else { return }
         let profile = NetworkProfile()
         Task { @MainActor in
             do {
-                let fileURL = try ProfileStore.fileURL(forConfigName: sanitizedName)
-                try await ProfileStore.save(profile, to: fileURL)
-                let index = ProfileStore.ProfileIndex(
-                    configName: sanitizedName,
-                    fileURL: fileURL
-                )
-                profiles.append(ProfileEntry(index: index, profile: profile))
-                selectedProfileId = sanitizedName
+                try await ProfileStore.save(profile, named: sanitizedName)
+                selectedProfileName = sanitizedName
+                selectedProfile = profile
             } catch {
                 dashboardLogger.error("create profile failed: \(error)")
                 errorMessage = .init(error.localizedDescription)
@@ -127,19 +107,23 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
         NavigationStack {
             Form {
                 Section("network") {
+                    let profiles = ProfileStore.loadIndexOrEmpty().map{ IdenticalTextItem($0) }
                     ForEach(profiles) { item in
                         Button {
-                            if selectedProfileId == item.id {
-                                selectedProfileId = nil
+                            if selectedProfileName == item.id {
+                                selectedProfileName = nil
+                                selectedProfile = nil
                             } else {
-                                selectedProfileId = item.id
+                                Task { @MainActor in
+                                    await loadProfile(item.id)
+                                }
                             }
                         } label: {
                             HStack {
                                 Text(item.id)
                                     .foregroundColor(.primary)
                                 Spacer()
-                                if selectedProfileId == item.id {
+                                if selectedProfileName == item.id {
                                     Image(systemName: "checkmark")
                                         .foregroundColor(.blue)
                                 }
@@ -159,19 +143,13 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                     .onDelete { indexSet in
                         withAnimation {
                             for index in indexSet {
-                                if selectedProfileId == profiles[index].id {
-                                    selectedProfileId = nil
-                                }
-                            }
-                            for index in indexSet {
                                 do {
-                                    try ProfileStore.deleteProfile(at: profiles[index].index.fileURL)
+                                    try ProfileStore.deleteProfile(named: profiles[index].id)
                                 } catch {
                                     dashboardLogger.error("delete profile failed: \(error)")
                                     errorMessage = .init(error.localizedDescription)
                                 }
                             }
-                            profiles.remove(atOffsets: indexSet)
                         }
                     }
                 }
@@ -257,7 +235,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     var body: some View {
         NavigationStack {
             mainView
-                .navigationTitle(selectedProfileTitle ?? String(localized: "select_network"))
+                .navigationTitle(selectedProfileName ?? String(localized: "select_network"))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("select_network", systemImage: "chevron.up.chevron.down") {
@@ -272,16 +250,14 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                         Task { @MainActor in
                             if isConnected {
                                 await manager.disconnect()
-                            } else if let selectedProfileIndex {
-                                if let selectedProfile = await loadProfileIfNeeded(at: selectedProfileIndex) {
-                                    do {
-                                        let options = try NEManager.generateOptions(selectedProfile)
-                                        NEManager.saveOptions(options)
-                                        try await manager.connect()
-                                    } catch {
-                                        dashboardLogger.error("connect failed: \(error)")
-                                        errorMessage = .init(error.localizedDescription)
-                                    }
+                            } else if let selectedProfile {
+                                do {
+                                    let options = try NEManager.generateOptions(selectedProfile)
+                                    NEManager.saveOptions(options)
+                                    try await manager.connect()
+                                } catch {
+                                    dashboardLogger.error("connect failed: \(error)")
+                                    errorMessage = .init(error.localizedDescription)
                                 }
                             }
                             isLocalPending = false
@@ -294,7 +270,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                         .labelStyle(.titleAndIcon)
                         .padding(10)
                     }
-                    .disabled(selectedProfileId == nil || manager.isLoading || isPending)
+                    .disabled(selectedProfileName == nil || manager.isLoading || isPending)
                     .buttonStyle(.plain)
                     .foregroundStyle(isConnected ? Color.red : Color.accentColor)
                     .animation(.interactiveSpring, value: [isConnected, isPending])
@@ -302,21 +278,16 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             }
         }
         .onAppear {
-            if selectedProfileId == nil {
-                if let lastSelected,
-                   let match = profiles.first(where: { $0.id == lastSelected }) {
-                    selectedProfileId = match.id
-                } else {
-                    selectedProfileId = profiles.first?.id
-                }
-            }
-            if let selectedProfileIndex {
-                Task { @MainActor in
-                    _ = await loadProfileIfNeeded(at: selectedProfileIndex)
-                }
-            }
             Task { @MainActor in
                 try? await manager.load()
+                if selectedProfileName == nil,
+                   let lastSelected {
+                    await loadProfile(lastSelected)
+                    if let selectedProfile,
+                       let options = try? NEManager.generateOptions(selectedProfile) {
+                        NEManager.saveOptions(options)
+                    }
+                }
             }
             // Register Darwin notification observer for tunnel errors
             darwinObserver = DNObserver(name: "\(APP_BUNDLE_ID).error") {
@@ -329,78 +300,21 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
                     }
                 }
             }
-            if let selectedProfileIndex {
-                Task { @MainActor in
-                    if let selectedProfile = await loadProfileIfNeeded(at: selectedProfileIndex),
-                       let options = try? NEManager.generateOptions(selectedProfile) {
-                        NEManager.saveOptions(options)
-                    }
-                }
-            }
         }
         .onChange(of: scenePhase) { _ in
             Task { @MainActor in
-                await saveOptions()
-                await saveAllProfiles()
-            }
-        }
-        .onChange(of: selectedProfileId) { newValue in
-            if let oldValue = lastSelected,
-               let oldIndex = profiles.firstIndex(where: { $0.id == oldValue }) {
-                Task { @MainActor in
-                    await saveProfileIfNeeded(at: oldIndex)
-                }
-            }
-            lastSelected = newValue
-            if let selectedProfileIndex {
-                Task { @MainActor in
-                    if let selectedProfile = await loadProfileIfNeeded(at: selectedProfileIndex) {
-                        await manager.updateName(
-                            name: profiles[selectedProfileIndex].index.configName,
-                            server: selectedProfile.id.uuidString
-                        )
-                        await saveOptions()
-                    }
-                }
+                await saveProfile()
             }
         }
         .onChange(of: profilesUseICloud) { _ in
-            profiles = ProfileStore.loadIndexOrEmpty().map {
-                ProfileEntry(index: $0, profile: nil)
-            }
-            selectedProfileId = profiles.first?.id
-            Task { @MainActor in
-                await saveOptions()
-            }
-        }
-        .onChange(of: showManageSheet) { isPresented in
-            if isPresented {
-                profiles = ProfileStore.loadIndexOrEmpty().map {
-                    ProfileEntry(index: $0, profile: nil)
-                }
-                if let selectedProfileId,
-                   !profiles.contains(where: { $0.id == selectedProfileId }) {
-                    self.selectedProfileId = profiles.first?.id
-                }
-                if let selectedProfileIndex {
-                    Task { @MainActor in
-                        if let selectedProfile = await loadProfileIfNeeded(at: selectedProfileIndex) {
-                            await manager.updateName(
-                                name: profiles[selectedProfileIndex].index.configName,
-                                server: selectedProfile.id.uuidString
-                            )
-                            await saveOptions()
-                        }
-                    }
-                }
-            }
+            selectedProfile = nil
+            selectedProfileName = nil
         }
         .onDisappear {
             // Release observer to remove registration
             darwinObserver = nil
             Task { @MainActor in
-                await saveOptions()
-                await saveAllProfiles()
+                await saveProfile()
             }
         }
         .sheet(isPresented: $showManageSheet) {
@@ -453,19 +367,32 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     }
     
     @MainActor
-    private func saveOptions() async {
-        if let selectedProfileIndex,
-           let selectedProfile = await loadProfileIfNeeded(at: selectedProfileIndex),
+    private func loadProfile(_ named: String) async {
+        selectedProfileName = named
+        do {
+            selectedProfile = try await ProfileStore.loadProfile(named: named)
+        } catch {
+            dashboardLogger.error("load profile failed: \(error)")
+            errorMessage = .init(error.localizedDescription)
+        }
+    }
+    
+    @MainActor
+    private func saveProfile(saveOptions: Bool = true) async {
+        if saveOptions,
+           let selectedProfile,
            let options = try? NEManager.generateOptions(selectedProfile) {
             NEManager.saveOptions(options)
         }
-    }
-
-    @MainActor
-    private func saveAllProfiles() async {
-        for index in profiles.indices {
-            await saveProfileIfNeeded(at: index)
+        if let selectedProfile, let selectedProfileName {
+            do {
+                try await ProfileStore.save(selectedProfile, named: selectedProfileName)
+            } catch {
+                dashboardLogger.error("save failed: \(error)")
+                errorMessage = .init(error.localizedDescription)
+            }
         }
+        pendingSaveWorkItem?.cancel()
     }
 
     private func importConfig(from url: URL) {
@@ -479,16 +406,12 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             do {
                 let toml = try String(contentsOf: url, encoding: .utf8)
                 let config = try TOMLDecoder().decode(NetworkConfig.self, from: toml)
-                let configName = url.deletingPathExtension().lastPathComponent
+                let rawName = url.deletingPathExtension().lastPathComponent
+                guard let configName = availableConfigName(rawName) else { return }
                 let profile = NetworkProfile(from: config)
-                let fileURL = try ProfileStore.fileURL(forConfigName: configName)
-                try await ProfileStore.save(profile, to: fileURL)
-                let index = ProfileStore.ProfileIndex(
-                    configName: configName,
-                    fileURL: fileURL
-                )
-                profiles.append(ProfileEntry(index: index, profile: profile))
-                selectedProfileId = configName
+                try await ProfileStore.save(profile, named: configName)
+                selectedProfileName = configName
+                selectedProfile = profile
             } catch {
                 dashboardLogger.error("import failed: \(error)")
                 errorMessage = .init(error.localizedDescription)
@@ -497,12 +420,13 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     }
 
     private func exportSelectedProfile() {
-        guard let selectedProfileIndex else {
+        guard let selectedProfileName else {
             errorMessage = .init("Please select a network.")
             return
         }
-        let fileURL = profiles[selectedProfileIndex].index.fileURL
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+        let fileURL = try? ProfileStore.fileURL(forConfigName: selectedProfileName)
+        guard let fileURL,
+              FileManager.default.fileExists(atPath: fileURL.path) else {
             errorMessage = .init("Config file not found.")
             return
         }
@@ -511,12 +435,8 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     }
 
     private func presentEditInText() {
-        guard let selectedProfileIndex else {
-            errorMessage = .init("Please select a network.")
-            return
-        }
         Task { @MainActor in
-            guard let selectedProfile = await loadProfileIfNeeded(at: selectedProfileIndex) else {
+            guard let selectedProfile else {
                 errorMessage = .init("Please select a network.")
                 return
             }
@@ -532,20 +452,16 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     }
 
     private func saveEditInText() {
-        guard let selectedProfileIndex else {
-            errorMessage = .init("Please select a network.")
-            return
-        }
         Task { @MainActor in
             do {
                 let config = try TOMLDecoder().decode(NetworkConfig.self, from: editText)
-                guard var profile = await loadProfileIfNeeded(at: selectedProfileIndex) else {
+                guard var profile = selectedProfile else {
                     errorMessage = .init("Please select a network.")
                     return
                 }
                 config.apply(to: &profile)
-                profiles[selectedProfileIndex].profile = profile
-                scheduleSave(for: selectedProfileIndex)
+                selectedProfile = profile
+                scheduleSave()
                 showEditSheet = false
             } catch {
                 dashboardLogger.error("edit save failed: \(error)")
@@ -555,26 +471,18 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
     }
 
     private func commitConfigNameEdit() {
-        guard let editingProfileName,
-              let index = profiles.firstIndex(where: { $0.id == editingProfileName }) else {
-            return
-        }
+        guard let selectedProfileName,
+              let editingProfileName else { return }
         let trimmed = editConfigNameInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return
-        }
-        guard let sanitizedName = validatedConfigName(trimmed, excludingIndex: index) else { return }
-        guard sanitizedName != profiles[index].index.configName else { return }
-        let previousName = profiles[index].index.configName
+        guard !trimmed.isEmpty && trimmed != editingProfileName else { return }
+        guard let sanitizedName = validatedConfigName(trimmed) else { return }
         do {
-            let newURL = try ProfileStore.renameProfileFile(
-                from: profiles[index].index.fileURL,
+            try ProfileStore.renameProfileFile(
+                from: selectedProfileName,
                 to: sanitizedName
             )
-            profiles[index].index.fileURL = newURL
-            profiles[index].index.configName = sanitizedName
-            if selectedProfileId == previousName {
-                selectedProfileId = sanitizedName
+            if selectedProfileName == editingProfileName {
+                self.selectedProfileName = sanitizedName
             }
         } catch {
             dashboardLogger.error("rename failed: \(error)")
@@ -582,7 +490,7 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
         }
     }
 
-    private func validatedConfigName(_ raw: String, excludingIndex: Int?) -> String? {
+    private func validatedConfigName(_ raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             errorMessage = .init("Config name cannot be empty.")
@@ -593,11 +501,8 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
             errorMessage = .init("Config name contains invalid characters.")
             return nil
         }
-        let hasDuplicate = profiles.enumerated().contains { item in
-            if let excludingIndex, item.offset == excludingIndex {
-                return false
-            }
-            return item.element.index.configName.caseInsensitiveCompare(sanitized) == .orderedSame
+        let hasDuplicate = ProfileStore.loadIndexOrEmpty().enumerated().contains { item in
+            return item.element.caseInsensitiveCompare(sanitized) == .orderedSame
         }
         guard !hasDuplicate else {
             errorMessage = .init("Config name already exists.")
@@ -606,65 +511,47 @@ struct DashboardView<Manager: NEManagerProtocol>: View {
         return sanitized
     }
 
-    @MainActor
-    private func loadProfileIfNeeded(at index: Int) async -> NetworkProfile? {
-        guard profiles.indices.contains(index) else { return nil }
-        if let profile = profiles[index].profile {
-            return profile
-        }
-        do {
-            let profile = try await ProfileStore.loadProfile(from: profiles[index].index)
-            profiles[index].profile = profile
-            return profile
-        } catch {
-            dashboardLogger.error("load profile failed: \(error)")
-            errorMessage = .init(error.localizedDescription)
+    private func availableConfigName(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            errorMessage = .init("Config name cannot be empty.")
             return nil
         }
-    }
-
-    @MainActor
-    private func saveProfileIfNeeded(at index: Int) async {
-        guard profiles.indices.contains(index) else { return }
-        guard let profile = profiles[index].profile else { return }
-        let fileURL = profiles[index].index.fileURL
-        let profileId = profiles[index].id
-        do {
-            try await ProfileStore.save(profile, to: fileURL)
-            if selectedProfileId == profileId {
-                await saveOptions()
-            }
-        } catch {
-            dashboardLogger.error("save profile failed: \(error)")
-            errorMessage = .init(error.localizedDescription)
+        let sanitized = ProfileStore.sanitizedFileName(trimmed, fallback: "")
+        guard sanitized == trimmed else {
+            errorMessage = .init("Config name contains invalid characters.")
+            return nil
         }
+        let existingNames = ProfileStore.loadIndexOrEmpty().enumerated().compactMap { item -> String? in
+            return item.element
+        }
+        if !existingNames.contains(where: { $0.caseInsensitiveCompare(sanitized) == .orderedSame }) {
+            return sanitized
+        }
+        var suffix = 2
+        while suffix < 10_000 {
+            let candidate = "\(sanitized) \(suffix)"
+            if !existingNames.contains(where: { $0.caseInsensitiveCompare(candidate) == .orderedSame }) {
+                return candidate
+            }
+            suffix += 1
+        }
+        errorMessage = .init("Config name already exists.")
+        return nil
     }
 
     @MainActor
-    private func scheduleSave(for index: Int) {
-        let profileId = profiles[index].id
+    private func scheduleSave() {
+        dashboardLogger.debug("scheduleSave() triggered")
         pendingSaveWorkItem?.cancel()
         let workItem = DispatchWorkItem {
             Task { @MainActor in
-                guard let targetIndex = profiles.firstIndex(where: { $0.id == profileId }) else { return }
-                await saveProfileIfNeeded(at: targetIndex)
+                dashboardLogger.debug("scheduleSave() saving")
+                await saveProfile()
             }
         }
         pendingSaveWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + profileSaveDebounceInterval, execute: workItem)
-    }
-
-    private func bindingForProfile(at index: Int) -> Binding<NetworkProfile> {
-        Binding(
-            get: {
-                guard index < profiles.count else { return NetworkProfile() }
-                return profiles[index].profile ?? NetworkProfile()
-            },
-            set: { newValue in
-                profiles[index].profile = newValue
-                scheduleSave(for: index)
-            }
-        )
     }
 }
 
