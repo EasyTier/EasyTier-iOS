@@ -1,6 +1,5 @@
 import Foundation
 
-
 struct RunningInfo: Decodable {
     var myNodeInfo: RunningNodeInfo?
     var routes: [RunningRoute]

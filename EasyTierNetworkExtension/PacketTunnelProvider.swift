@@ -56,58 +56,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         // Wake the host app via Darwin notification
         postDarwinNotification("\(APP_BUNDLE_ID).error")
     }
-    
-    private func prepareSettings(_ options: EasyTierOptions) -> NEPacketTunnelNetworkSettings {
-        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-        let runningInfo = fetchRunningInfo()
-        if runningInfo == nil {
-            logger.warning("prepareSettings() running info is nil")
-        }
-
-        let ipv4Settings: NEIPv4Settings
-        if let ipv4 = runningInfo?.myNodeInfo?.virtualIPv4,
-           let mask = cidrToSubnetMask(ipv4.networkLength) {
-            ipv4Settings = NEIPv4Settings(
-                addresses: [ipv4.address.description],
-                subnetMasks: [mask]
-            )
-        } else if let ipv4 = options.ipv4,
-                  let cidr = RunningIPv4CIDR(from: ipv4),
-                  let mask = cidrToSubnetMask(cidr.networkLength) {
-            ipv4Settings = NEIPv4Settings(
-                addresses: [cidr.address.description],
-                subnetMasks: [mask]
-            )
-        } else {
-            logger.warning("prepareSettings() no ipv4 address, skipping all")
-            return NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-        }
-        let routes = buildIPv4Routes(info: runningInfo, options: options)
-        if !routes.isEmpty {
-            logger.info("prepareSettings() ipv4 routes: \(routes.count)")
-            ipv4Settings.includedRoutes = routes
-            settings.ipv4Settings = ipv4Settings
-        }
-
-        if let ipv6CIDR = options.ipv6?.split(separator: "/"), ipv6CIDR.count == 2 {
-            let ip = ipv6CIDR[0], cidrStr = ipv6CIDR[1]
-            if let cidr = Int(cidrStr) {
-                settings.ipv6Settings = .init(
-                    addresses: [String(ip)],
-                    networkPrefixLengths: [NSNumber(value: cidr)]
-                )
-            }
-        }
-
-        if let dns = buildDNSServers(options: options) {
-            settings.dnsSettings = dns
-        }
-        
-        settings.mtu = options.mtu as? NSNumber
-        logger.info("prepareSettings(): \(settings, privacy: .public)")
-
-        return settings
-    }
 
     private func handleRunningInfoChanged() {
         logger.warning("handleRunningInfoChanged(): triggered")
@@ -135,7 +83,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             completion("cannot get options")
             return
         }
-        let settings = self.prepareSettings(options)
+        let settings = buildSettings(options)
         logger.info("applyNetworkSettings() applying settings")
         let oldState = lastIPState
         lastIPState = .init(from: settings)
