@@ -2,6 +2,8 @@ import Combine
 import Foundation
 import SwiftUI
 
+import EasyTierShared
+
 struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
     @ObservedObject var manager: Manager
     @Environment(\.scenePhase) private var scenePhase
@@ -14,6 +16,8 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
     @State var selectedPeerRoute: SelectedPeerRoute?
     @State var showNodeInfo = false
     @State var showStunInfo = false
+    @State var showNetworkSettings = false
+    @State var lastNetworkSettings: TunnelNetworkSettingsSnapshot?
     
     let networkName: String
     
@@ -74,6 +78,9 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
         }
         .sheet(isPresented: $showStunInfo) {
             StunInfoSheet(status: $status)
+        }
+        .sheet(isPresented: $showNetworkSettings) {
+            NetworkSettingsSheet(settings: $lastNetworkSettings)
         }
     }
     
@@ -159,6 +166,15 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
                 StatusBadge(status: .init(status?.running))
             }
             .padding(.horizontal, 4)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                manager.fetchLastNetworkSettings { settings in
+                    DispatchQueue.main.async {
+                        lastNetworkSettings = settings
+                        showNetworkSettings = true
+                    }
+                }
+            }
             
             HStack(spacing: 42) {
                 TrafficItem(

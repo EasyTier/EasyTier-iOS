@@ -86,7 +86,7 @@ struct NetworkEditView: View {
 
                 switch profile.networkingMethod {
                 case .publicServer:
-                    LabeledContent("status.server") {
+                    LabeledContent("server") {
                         TextField("example.peer_url", text: $profile.publicServerURL)
                             .multilineTextAlignment(.trailing)
                             .font(.body.monospaced())

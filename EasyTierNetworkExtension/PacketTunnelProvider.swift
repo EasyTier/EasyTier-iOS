@@ -5,12 +5,6 @@ import Foundation
 
 import EasyTierShared
 
-
-enum ProviderCommand: String {
-    case exportOSLog = "export_oslog"
-    case runningInfo = "running_info"
-}
-
 let loggerSubsystem = "\(APP_BUNDLE_ID).tunnel"
 let logger = Logger(subsystem: loggerSubsystem, category: "swift")
 
@@ -24,7 +18,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     // Hold a weak reference to the current provider for C callback bridging
     private static weak var current: PacketTunnelProvider?
     private var lastOptions: EasyTierOptions?
-    private var lastIPState = TunnelIPState()
+    private var lastAppliedSettings: TunnelNetworkSettingsSnapshot?
 
     private func handleRustStop() {
         // Called from FFI callback on an arbitrary thread
@@ -86,9 +80,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
         let settings = buildSettings(options)
         logger.info("applyNetworkSettings() applying settings")
-        let oldState = lastIPState
-        lastIPState = .init(from: settings)
-        let needSetTunFd = lastIPState != oldState && !lastIPState.isEmpty
+        let newSnapshot = snapshotSettings(settings)
+        let needSetTunFd = shouldUpdateTunFd(old: lastAppliedSettings, new: newSnapshot)
         self.setTunnelNetworkSettings(settings) { [weak self] error in
             guard let self else {
                 completion(error)
@@ -117,6 +110,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                     notifyHostAppError("no available tun fd")
                 }
             }
+            self.lastAppliedSettings = newSnapshot
             logger.info("applyNetworkSettings() settings applied")
             completion(nil)
         }
@@ -221,6 +215,18 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                     logger.error("handleAppMessage() failed: \(err, privacy: .public)")
                     completionHandler(nil)
                 } else {
+                    completionHandler(nil)
+                }
+            case .lastNetworkSettings:
+                guard let lastAppliedSettings else {
+                    completionHandler(nil)
+                    return
+                }
+                do {
+                    let data = try JSONEncoder().encode(lastAppliedSettings)
+                    completionHandler(data)
+                } catch {
+                    logger.error("handleAppMessage() encode settings failed: \(error, privacy: .public)")
                     completionHandler(nil)
                 }
             }

@@ -4,32 +4,67 @@ import os
 
 import EasyTierShared
 
-struct TunnelIPState: Equatable {
-    let v4Address: String?
-    let v4SubnetMask: String?
-    
-    let v6Address: String?
-    let v6PrefixLength: Int?
-
-    init(from settings: NEPacketTunnelNetworkSettings?) {
-        let v4 = settings?.ipv4Settings
-        self.v4Address = v4?.addresses.first
-        self.v4SubnetMask = v4?.subnetMasks.first
-
-        let v6 = settings?.ipv6Settings
-        self.v6Address = v6?.addresses.first
-        self.v6PrefixLength = v6?.networkPrefixLengths.first?.intValue
+extension PacketTunnelProvider {
+    func snapshotSettings(_ settings: NEPacketTunnelNetworkSettings) -> TunnelNetworkSettingsSnapshot {
+        let ipv4 = settings.ipv4Settings.map { ipv4 in
+            TunnelNetworkSettingsSnapshot.IPv4(
+                addresses: ipv4.addresses,
+                subnetMasks: ipv4.subnetMasks,
+                includedRoutes: mapIPv4Routes(ipv4.includedRoutes),
+                excludedRoutes: mapIPv4Routes(ipv4.excludedRoutes)
+            )
+        }
+        let ipv6 = settings.ipv6Settings.map { ipv6 in
+            TunnelNetworkSettingsSnapshot.IPv6(
+                addresses: ipv6.addresses,
+                networkPrefixLengths: ipv6.networkPrefixLengths.map { UInt32($0.intValue) },
+                includedRoutes: mapIPv6Routes(ipv6.includedRoutes),
+                excludedRoutes: mapIPv6Routes(ipv6.excludedRoutes)
+            )
+        }
+        let dns = settings.dnsSettings.map { dns in
+            TunnelNetworkSettingsSnapshot.DNS(
+                servers: dns.servers,
+                searchDomains: dns.searchDomains,
+                matchDomains: dns.matchDomains
+            )
+        }
+        return .init(
+            ipv4: ipv4,
+            ipv6: ipv6,
+            dns: dns,
+            mtu: settings.mtu?.uint32Value
+        )
     }
-    
-    init() {
-        v4Address = nil
-        v4SubnetMask = nil
-        v6Address = nil
-        v6PrefixLength = nil
+
+    func shouldUpdateTunFd(old: TunnelNetworkSettingsSnapshot?, new: TunnelNetworkSettingsSnapshot) -> Bool {
+        guard hasIPAddresses(new) else { return false }
+        guard let old else { return true }
+        let oldV4 = old.ipv4?.addresses.first
+        let oldV6 = old.ipv6?.addresses.first
+        let newV4 = new.ipv4?.addresses.first
+        let newV6 = new.ipv6?.addresses.first
+        return oldV4 != newV4 || oldV6 != newV6
     }
-    
-    var isEmpty: Bool {
-        return v4Address == nil && v6Address == nil
+
+    private func hasIPAddresses(_ settings: TunnelNetworkSettingsSnapshot) -> Bool {
+        let v4 = settings.ipv4?.addresses.first?.isEmpty == false
+        let v6 = settings.ipv6?.addresses.first?.isEmpty == false
+        return v4 || v6
+    }
+
+    private func mapIPv4Routes(_ routes: [NEIPv4Route]?) -> [TunnelNetworkSettingsSnapshot.IPv4Route]? {
+        guard let routes, !routes.isEmpty else { return nil }
+        return routes.map {
+            .init(destination: $0.destinationAddress, subnetMask: $0.destinationSubnetMask)
+        }
+    }
+
+    private func mapIPv6Routes(_ routes: [NEIPv6Route]?) -> [TunnelNetworkSettingsSnapshot.IPv6Route]? {
+        guard let routes, !routes.isEmpty else { return nil }
+        return routes.map {
+            .init(destination: $0.destinationAddress, networkPrefixLength: UInt32($0.destinationNetworkPrefixLength.intValue))
+        }
     }
 }
 

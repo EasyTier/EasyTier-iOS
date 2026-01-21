@@ -20,14 +20,9 @@
       "shouldTranslate" : false
     },
     "%@/%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@/%2$@"
-          }
-        }
-      },
+      "shouldTranslate" : false
+    },
+    "%@/%u" : {
       "shouldTranslate" : false
     },
     "0" : {
@@ -182,6 +177,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "高级设置"
+          }
+        }
+      }
+    },
+    "all_domains" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Domains"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部域名"
           }
         }
       }
@@ -1069,6 +1080,22 @@
         }
       }
     },
+    "dns" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DNS"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "DNS"
+          }
+        }
+      }
+    },
     "download" : {
       "localizations" : {
         "en" : {
@@ -1753,6 +1780,22 @@
         }
       }
     },
+    "ipv4" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4"
+          }
+        }
+      }
+    },
     "ipv4_addr" : {
       "localizations" : {
         "en" : {
@@ -1769,6 +1812,54 @@
         }
       }
     },
+    "ipv4_routes_excluded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4 Excluded Routes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4 排除路由"
+          }
+        }
+      }
+    },
+    "ipv4_routes_included" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4 Included Routes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv4 包含路由"
+          }
+        }
+      }
+    },
+    "ipv6" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6"
+          }
+        }
+      }
+    },
     "ipv6_addr" : {
       "localizations" : {
         "en" : {
@@ -1781,6 +1872,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "IPv6 地址"
+          }
+        }
+      }
+    },
+    "ipv6_routes_excluded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6 Excluded Routes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6 排除路由"
+          }
+        }
+      }
+    },
+    "ipv6_routes_included" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6 Included Routes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6 包含路由"
           }
         }
       }
@@ -2105,6 +2228,22 @@
         }
       }
     },
+    "match_domains" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Match Domains"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匹配域名"
+          }
+        }
+      }
+    },
     "max_port" : {
       "localizations" : {
         "en" : {
@@ -2261,6 +2400,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "密码"
+          }
+        }
+      }
+    },
+    "network_settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Network Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络设置"
           }
         }
       }
@@ -2442,7 +2597,36 @@
       }
     },
     "no_peer_information_available" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No peer information available"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无可用节点信息"
+          }
+        }
+      }
+    },
+    "no_settings_available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No settings available"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无可用设置"
+          }
+        }
+      }
     },
     "no_stun_information_available" : {
       "localizations" : {
@@ -3247,6 +3431,22 @@
         }
       }
     },
+    "search_domains" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Domains"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索域名"
+          }
+        }
+      }
+    },
     "select_network" : {
       "localizations" : {
         "en" : {
@@ -3259,6 +3459,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择网络"
+          }
+        }
+      }
+    },
+    "server" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器"
           }
         }
       }
@@ -3323,22 +3539,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "状态刷新间隔"
-          }
-        }
-      }
-    },
-    "status.server" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "服务器"
           }
         }
       }

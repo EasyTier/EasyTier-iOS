@@ -152,7 +152,7 @@ struct NetworkStatus: Codable {
         var url: String
     }
 
-    struct NodeInfo: Codable {
+    struct MyNodeInfo: Codable {
         struct IPList: Codable {
             var publicIPv4: IPv4Addr?
             var interfaceIPv4s: [IPv4Addr]?
@@ -314,7 +314,7 @@ struct NetworkStatus: Codable {
     }
 
     var devName: String
-    var myNodeInfo: NodeInfo?
+    var myNodeInfo: MyNodeInfo?
     var events: [String]
     var routes: [Route]
     var peers: [PeerInfo]

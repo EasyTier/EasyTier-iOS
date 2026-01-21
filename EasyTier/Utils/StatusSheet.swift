@@ -1,5 +1,160 @@
 import SwiftUI
 
+import EasyTierShared
+
+struct NetworkSettingsSheet: View {
+    @Binding var settings: TunnelNetworkSettingsSnapshot?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let settings {
+                    if let ipv4 = settings.ipv4 {
+                        Section("ipv4") {
+                            labeledLines("address", values: formatIPv4Addresses(ipv4.addresses, subnetMasks: ipv4.subnetMasks))
+                        }
+                        if let routes = ipv4.includedRoutes, !routes.isEmpty {
+                            Section("ipv4_routes_included") {
+                                ForEach(Array(routes.enumerated()), id: \.offset) { _, route in
+                                    Text(formatIPv4Route(route))
+                                }
+                            }
+                        }
+                        if let routes = ipv4.excludedRoutes, !routes.isEmpty {
+                            Section("ipv4_routes_excluded") {
+                                ForEach(Array(routes.enumerated()), id: \.offset) { _, route in
+                                    Text(formatIPv4Route(route))
+                                }
+                            }
+                        }
+                    }
+
+                    if let ipv6 = settings.ipv6 {
+                        Section("ipv6") {
+                            labeledLines("address", values: formatIPv6Addresses(ipv6.addresses, prefixLengths: ipv6.networkPrefixLengths))
+                        }
+                        if let routes = ipv6.includedRoutes, !routes.isEmpty {
+                            Section("ipv6_routes_included") {
+                                ForEach(Array(routes.enumerated()), id: \.offset) { _, route in
+                                    Text("\(route.destination)/\(route.networkPrefixLength)")
+                                }
+                            }
+                        }
+                        if let routes = ipv6.excludedRoutes, !routes.isEmpty {
+                            Section("ipv6_routes_excluded") {
+                                ForEach(Array(routes.enumerated()), id: \.offset) { _, route in
+                                    Text("\(route.destination)/\(route.networkPrefixLength)")
+                                }
+                            }
+                        }
+                    }
+
+                    if let dns = settings.dns {
+                        Section("dns") {
+                            labeledLines("server", values: dns.servers)
+                            if let search = dns.searchDomains, !search.isEmpty {
+                                labeledLines("search_domains", values: search)
+                            }
+                            if let match = dns.matchDomains, !match.isEmpty {
+                                labeledLines("match_domains", values: formatMatchDomains(match))
+                            }
+                        }
+                    }
+
+                    if let mtu = settings.mtu {
+                        Section("mtu") {
+                            LabeledContent("mtu", value: String(mtu))
+                        }
+                    }
+                } else {
+                    Section {
+                        Text("no_settings_available")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .textSelection(.enabled)
+            .navigationTitle("network_settings")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private func labeledLines(_ label: LocalizedStringKey, values: [String]) -> some View {
+        LabeledContent(label) {
+            Text(values.isEmpty ? String(localized: "not_available") : values.joined(separator: "\n"))
+        }
+    }
+
+    private func formatIPv4Addresses(_ addresses: [String], subnetMasks: [String]) -> [String] {
+        let count = min(addresses.count, subnetMasks.count)
+        guard count > 0 else { return addresses }
+        var results: [String] = []
+        results.reserveCapacity(count)
+        for index in 0..<count {
+            let address = addresses[index]
+            let mask = subnetMasks[index]
+            if let prefix = ipv4PrefixLength(from: mask) {
+                results.append("\(address)/\(prefix)")
+            } else {
+                results.append(address)
+            }
+        }
+        if addresses.count > count {
+            results.append(contentsOf: addresses[count...])
+        }
+        return results
+    }
+
+    private func formatIPv6Addresses(_ addresses: [String], prefixLengths: [UInt32]) -> [String] {
+        let count = min(addresses.count, prefixLengths.count)
+        guard count > 0 else { return addresses }
+        var results: [String] = []
+        results.reserveCapacity(count)
+        for index in 0..<count {
+            results.append("\(addresses[index])/\(prefixLengths[index])")
+        }
+        if addresses.count > count {
+            results.append(contentsOf: addresses[count...])
+        }
+        return results
+    }
+
+    private func formatMatchDomains(_ domains: [String]) -> [String] {
+        domains.map { domain in
+            domain.isEmpty ? String(localized: "all_domains") : domain
+        }
+    }
+
+    private func formatIPv4Route(_ route: TunnelNetworkSettingsSnapshot.IPv4Route) -> String {
+        if let prefix = ipv4PrefixLength(from: route.subnetMask) {
+            return "\(route.destination)/\(prefix)"
+        }
+        return "\(route.destination)/\(route.subnetMask)"
+    }
+
+    private func ipv4PrefixLength(from mask: String) -> Int? {
+        let parts = mask.split(separator: ".")
+        guard parts.count == 4 else { return nil }
+        var value: UInt32 = 0
+        for part in parts {
+            guard let octet = UInt32(part), octet <= 255 else { return nil }
+            value = (value << 8) | octet
+        }
+        var prefix = 0
+        var seenZero = false
+        for bit in (0..<32).reversed() {
+            let isSet = (value & (1 << bit)) != 0
+            if isSet {
+                if seenZero { return nil }
+                prefix += 1
+            } else {
+                seenZero = true
+            }
+        }
+        return prefix
+    }
+}
+
 struct PeerConnDetailSheet: View {
     @Binding var status: NetworkStatus?
     let peerRouteID: Int
@@ -148,7 +303,7 @@ struct PeerConnDetailSheet: View {
 struct NodeInfoSheet: View {
     @Binding var status: NetworkStatus?
 
-    var nodeInfo: NetworkStatus.NodeInfo? {
+    var nodeInfo: NetworkStatus.MyNodeInfo? {
         status?.myNodeInfo
     }
     

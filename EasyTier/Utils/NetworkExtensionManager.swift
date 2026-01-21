@@ -18,6 +18,7 @@ protocol NetworkExtensionManagerProtocol: ObservableObject {
     func connect() async throws
     func disconnect() async
     func fetchRunningInfo(_ callback: @escaping ((NetworkStatus) -> Void))
+    func fetchLastNetworkSettings(_ callback: @escaping ((TunnelNetworkSettingsSnapshot?) -> Void))
     func updateName(name: String, server: String) async
     func exportExtensionLogs() async throws -> URL
     @MainActor
@@ -26,11 +27,6 @@ protocol NetworkExtensionManagerProtocol: ObservableObject {
 
 class NetworkExtensionManager: NetworkExtensionManagerProtocol {
     private static let logger = Logger(subsystem: APP_BUNDLE_ID, category: "NEManager")
-
-    private enum ProviderCommand: String {
-        case exportOSLog = "export_oslog"
-        case runningInfo = "running_info"
-    }
 
     private struct ProviderMessageResponse: Codable {
         let ok: Bool
@@ -281,6 +277,37 @@ class NetworkExtensionManager: NetworkExtensionManagerProtocol {
         }
     }
 
+    func fetchLastNetworkSettings(_ callback: @escaping ((TunnelNetworkSettingsSnapshot?) -> Void)) {
+        guard let manager else {
+            callback(nil)
+            return
+        }
+        guard let session = manager.connection as? NETunnelProviderSession,
+              session.status != .invalid else {
+            callback(nil)
+            return
+        }
+        do {
+            let message = ProviderCommand.lastNetworkSettings.rawValue.data(using: .utf8) ?? Data()
+            try session.sendProviderMessage(message) { data in
+                guard let data else {
+                    callback(nil)
+                    return
+                }
+                do {
+                    let settings = try JSONDecoder().decode(TunnelNetworkSettingsSnapshot.self, from: data)
+                    callback(settings)
+                } catch {
+                    Self.logger.error("fetchLastNetworkSettings() json deserialize failed: \(String(describing: error))")
+                    callback(nil)
+                }
+            }
+        } catch {
+            Self.logger.error("fetchLastNetworkSettings() failed: \(String(describing: error))")
+            callback(nil)
+        }
+    }
+
     func exportExtensionLogs() async throws -> URL {
         guard let manager,
               let session = manager.connection as? NETunnelProviderSession,
@@ -372,6 +399,10 @@ class MockNEManager: NetworkExtensionManagerProtocol {
         callback(MockNEManager.dummyRunningInfo)
     }
 
+    func fetchLastNetworkSettings(_ callback: @escaping ((TunnelNetworkSettingsSnapshot?) -> Void)) {
+        callback(nil)
+    }
+
     func exportExtensionLogs() async throws -> URL {
         throw NetworkExtensionManager.NEManagerError.providerUnavailable
     }
@@ -384,7 +415,7 @@ class MockNEManager: NetworkExtensionManagerProtocol {
     static var dummyRunningInfo: NetworkStatus {
         let id = UUID().uuidString
 
-        let myNodeInfo = NetworkStatus.NodeInfo(
+        let myNodeInfo = NetworkStatus.MyNodeInfo(
             virtualIPv4: NetworkStatus.IPv4CIDR(address: NetworkStatus.IPv4Addr("10.144.144.10")!, networkLength: 24),
             hostname: "My iPhone",
             version: "0.10.1",
