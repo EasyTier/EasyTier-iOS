@@ -379,7 +379,7 @@ extension NetworkConfig {
         }
 
         if let peer, !peer.isEmpty {
-            if peer.count == 1 {
+            if peer.count == 1 && peer[0].uri == def.publicServerURL {  // future: public server list
                 profile.networkingMethod = .publicServer
                 profile.publicServerURL = peer[0].uri
             } else {

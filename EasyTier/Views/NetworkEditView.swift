@@ -87,9 +87,8 @@ struct NetworkEditView: View {
                 switch profile.networkingMethod {
                 case .publicServer:
                     LabeledContent("server") {
-                        TextField("example.peer_url", text: $profile.publicServerURL)
+                        Text(profile.publicServerURL)
                             .multilineTextAlignment(.trailing)
-                            .font(.body.monospaced())
                     }
                 case .manual:
                     ListEditor(newItemTitle: "common_text.add_peer", items: $profile.peerURLs, addItemFactory: { "" }, rowContent: {
