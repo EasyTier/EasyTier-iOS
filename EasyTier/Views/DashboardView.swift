@@ -351,7 +351,11 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                 }
                 .fileImporter(
                     isPresented: $showImportPicker,
-                    allowedContentTypes: [UTType(filenameExtension: "toml") ?? .plainText],
+                    allowedContentTypes: [
+                        UTType(mimeType: "application/toml"),
+                        UTType(filenameExtension: "toml"),
+                        .plainText
+                    ].compactMap { $0 },
                     allowsMultipleSelection: false
                 ) { result in
                     switch result {

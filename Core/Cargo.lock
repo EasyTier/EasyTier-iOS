@@ -972,7 +972,7 @@ dependencies = [
 [[package]]
 name = "easytier"
 version = "2.5.0"
-source = "git+https://github.com/EasyTier/EasyTier.git?branch=main#f8b34e3c86abc5b2aa16da09a5f97b3973490a3c"
+source = "git+https://github.com/EasyTier/EasyTier.git?branch=main#ffa08d1c43d3cd6f08c5391bf73d4a46fbfa0405"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1105,8 +1105,7 @@ dependencies = [
 [[package]]
 name = "easytier-rpc-build"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24829168c28f6a448f57d18116c255dcbd2b8c25e76dbc60f6cd16d68ad2cf07"
+source = "git+https://github.com/EasyTier/EasyTier.git?branch=main#ffa08d1c43d3cd6f08c5391bf73d4a46fbfa0405"
 dependencies = [
  "heck 0.5.0",
  "prost-build",
