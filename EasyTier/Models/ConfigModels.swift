@@ -6,7 +6,7 @@ struct NetworkConfig: Codable {
         var devName: String?
         var enableEncryption: Bool?
         var enableIPv6: Bool?
-        var mtu: UInt32?
+        var mtu: Int?
         var latencyFirst: Bool?
         var enableExitNode: Bool?
         var noTUN: Bool?
@@ -29,9 +29,9 @@ struct NetworkConfig: Codable {
         var privateMode: Bool?
         var enableQUICProxy: Bool?
         var disableQUICInput: Bool?
-        var quicListenPort: UInt32?
+        var quicListenPort: Int?
         var foreignRelayBpsLimit: UInt64?
-        var multiThreadCount: UInt32?
+        var multiThreadCount: Int?
         var enableRelayForeignNetworkKCP: Bool?
         var encryptionAlgorithm: String?
         var disableSymHolePunching: Bool?
@@ -296,6 +296,7 @@ struct NetworkConfig: Codable {
         tempFlags.disableQUICInput = takeIfChanged(profile.disableQUICInput, def.disableQUICInput)
         tempFlags.disableSymHolePunching = takeIfChanged(profile.disableSymHolePunching, def.disableSymHolePunching)
         tempFlags.p2pOnly = takeIfChanged(profile.p2pOnly, def.p2pOnly)
+        tempFlags.privateMode = takeIfChanged(profile.enablePrivateMode, def.enablePrivateMode)
         
         if profile.disableIPv6 != def.disableIPv6 {
             tempFlags.enableIPv6 = !profile.disableIPv6

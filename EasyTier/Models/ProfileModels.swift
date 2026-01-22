@@ -103,7 +103,7 @@ struct NetworkProfile: Identifiable, Equatable {
     var enableSocks5: Bool = false
     var socks5Port: Int = 1080
 
-    var mtu: UInt32? = nil
+    var mtu: Int? = nil
     var mappedListeners: [TextItem] = []
 
     var enableMagicDNS: Bool = false

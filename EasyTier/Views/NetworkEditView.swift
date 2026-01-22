@@ -118,8 +118,16 @@ struct NetworkEditView: View {
                 LabeledContent("mtu") {
                     TextField(
                         "common_text.default",
-                        value: $profile.mtu,
-                        formatter: NumberFormatter()
+                        text: Binding(
+                            get: { $profile.mtu.wrappedValue.map(String.init) ?? "" },
+                            set: { newValue in
+                                if newValue.isEmpty {
+                                    $profile.mtu.wrappedValue = nil
+                                } else {
+                                    $profile.mtu.wrappedValue = Int(newValue)
+                                }
+                            }
+                        )
                     )
                     .multilineTextAlignment(.trailing)
                     .keyboardType(.numberPad)

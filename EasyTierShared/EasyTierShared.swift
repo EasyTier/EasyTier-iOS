@@ -18,7 +18,7 @@ public struct EasyTierOptions: Codable {
     public var config: String = ""
     public var ipv4: String?
     public var ipv6: String?
-    public var mtu: UInt32?
+    public var mtu: Int?
     public var routes: [String] = []
     public var logLevel: LogLevel = .info
     public var magicDNS: Bool = false

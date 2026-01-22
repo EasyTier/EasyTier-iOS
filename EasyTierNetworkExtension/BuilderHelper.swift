@@ -51,7 +51,9 @@ func buildSettings(_ options: EasyTierOptions) -> NEPacketTunnelNetworkSettings 
         settings.dnsSettings = dns
     }
     
-    settings.mtu = options.mtu as? NSNumber
+    if let mtu = options.mtu {
+        settings.mtu = NSNumber(value: mtu)
+    }
     logger.info("prepareSettings(): \(settings, privacy: .public)")
 
     return settings

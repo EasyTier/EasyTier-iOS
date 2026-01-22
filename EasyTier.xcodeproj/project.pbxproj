@@ -83,8 +83,6 @@
 		0558362E2F04D26600139811 /* EasyTierNetworkExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EasyTierNetworkExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		055836302F04D26700139811 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		058E57A42F20AFD800BE84F9 /* lib.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = lib.rs; sourceTree = "<group>"; };
-		058EB1BF2F20AFD800BE84F9 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		058EB1C02F20AFD800BE84F9 /* Cargo.lock */ = {isa = PBXFileReference; lastKnownFileType = text; path = Cargo.lock; sourceTree = "<group>"; };
 		058EB1C12F20AFD800BE84F9 /* Cargo.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = Cargo.toml; sourceTree = "<group>"; };
 		05B61F5B2F05056D00646DDC /* libeasytier_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libeasytier_ios.a; sourceTree = "<group>"; };
 		7A59B8192F1641100069728D /* ControlWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ControlWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -236,8 +234,6 @@
 			isa = PBXGroup;
 			children = (
 				058E57A52F20AFD800BE84F9 /* src */,
-				058EB1BF2F20AFD800BE84F9 /* .gitignore */,
-				058EB1C02F20AFD800BE84F9 /* Cargo.lock */,
 				058EB1C12F20AFD800BE84F9 /* Cargo.toml */,
 			);
 			path = Core;
