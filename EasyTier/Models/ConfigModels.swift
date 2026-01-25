@@ -391,8 +391,10 @@ extension NetworkConfig {
             profile.networkingMethod = .standalone
         }
 
-        if let listeners, !listeners.isEmpty {
+        if let listeners {
             profile.listenerURLs = listeners.map { .init($0) }
+        } else {
+            profile.listenerURLs = []
         }
 
         if let proxyNetwork, !proxyNetwork.isEmpty {
