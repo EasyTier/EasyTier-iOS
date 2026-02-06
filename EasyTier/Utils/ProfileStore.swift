@@ -38,6 +38,7 @@ final class ProfileDocument: UIDocument {
     private(set) var lastLoadError: Error?
 
     override func load(fromContents contents: Any, ofType typeName: String?) throws {
+        profileStoreLogger.debug("ProfileDocument.load()")
         lastLoadError = nil
         let data: Data?
         if let rawData = contents as? Data {
@@ -63,6 +64,7 @@ final class ProfileDocument: UIDocument {
     }
 
     override func contents(forType typeName: String) throws -> Any {
+        profileStoreLogger.debug("ProfileDocument.contents()")
         let config = profile.toConfig()
         let encoded = try TOMLEncoder().encode(config).string ?? ""
         return encoded.data(using: .utf8) ?? Data()

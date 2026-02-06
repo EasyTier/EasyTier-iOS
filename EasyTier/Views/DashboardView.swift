@@ -16,6 +16,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @AppStorage("selectedProfileName", store: UserDefaults(suiteName: APP_GROUP_ID)) var lastSelected: String?
     @AppStorage("profilesUseICloud") var profilesUseICloud: Bool = false
     
+    @State var currentProfile = NetworkProfile()
     @State var isLocalPending = false
 
     @State var showManageSheet = false
@@ -64,6 +65,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                     set: { newValue in
                         guard selectedSession.session?.document.profile != newValue else { return }
                         selectedSession.session?.document.profile = newValue
+                        selectedSession.session?.document.markDirty()
                         selectedSession.objectWillChange.send()
                     }
                 )
