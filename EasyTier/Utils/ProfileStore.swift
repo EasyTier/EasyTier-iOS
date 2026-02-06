@@ -171,6 +171,18 @@ final class ProfileSession: ObservableObject, Equatable {
     }
 }
 
+final class SelectedProfileSession: ObservableObject {
+    @Published var session: ProfileSession? {
+        didSet {
+            sessionCancellable = session?.objectWillChange.sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+        }
+    }
+
+    private var sessionCancellable: AnyCancellable?
+}
+
 enum ProfileStore {
     static func loadIndexOrEmpty() -> [String] {
         do {

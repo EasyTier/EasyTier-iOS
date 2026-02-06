@@ -4,10 +4,11 @@ let columnWidth: CGFloat = 450
 
 struct ContentView<Manager: NetworkExtensionManagerProtocol>: View {
     @ObservedObject var manager: Manager
+    @StateObject private var selectedSession = SelectedProfileSession()
     
     var body: some View {
         TabView {
-            DashboardView(manager: manager)
+            DashboardView(manager: manager, selectedSession: selectedSession)
                 .tabItem {
                     Image(systemName: "list.bullet.below.rectangle")
                     Text("main.dashboard")

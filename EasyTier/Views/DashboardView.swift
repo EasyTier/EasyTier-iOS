@@ -11,11 +11,11 @@ private let dashboardLogger = Logger(subsystem: APP_BUNDLE_ID, category: "main.d
 struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @Environment(\.scenePhase) var scenePhase
     @ObservedObject var manager: Manager
+    @ObservedObject var selectedSession: SelectedProfileSession
     
     @AppStorage("selectedProfileName", store: UserDefaults(suiteName: APP_GROUP_ID)) var lastSelected: String?
     @AppStorage("profilesUseICloud") var profilesUseICloud: Bool = false
     
-    @StateObject var selectedSession = SelectedSession()
     @State var isLocalPending = false
 
     @State var showManageSheet = false
@@ -38,8 +38,9 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
 
     @State var darwinObserver: DarwinNotificationObserver? = nil
     
-    init(manager: Manager) {
+    init(manager: Manager, selectedSession: SelectedProfileSession) {
         _manager = ObservedObject(wrappedValue: manager)
+        _selectedSession = ObservedObject(wrappedValue: selectedSession)
     }
 
     struct ProfileEntry: Identifiable, Equatable {
@@ -325,7 +326,6 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
             darwinObserver = nil
             Task { @MainActor in
                 await saveProfile()
-                await closeSelectedSession(save: false)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .profileDocumentConflictDetected)) { notification in
@@ -653,17 +653,6 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         return ([String(localized: "icloud_conflict_message")] + lines).joined(separator: "\n")
     }
 
-    final class SelectedSession: ObservableObject {
-        @Published var session: ProfileSession? {
-            didSet {
-                sessionCancellable = session?.objectWillChange.sink { [weak self] _ in
-                    self?.objectWillChange.send()
-                }
-            }
-        }
-
-        private var sessionCancellable: AnyCancellable?
-    }
 }
 
 struct IdentifiableURL: Identifiable {
@@ -678,7 +667,8 @@ struct IdentifiableURL: Identifiable {
 #if DEBUG
 #Preview("Dashboard") {
     let manager = MockNEManager()
-    DashboardView(manager: manager)
+    let selectedSession = SelectedProfileSession()
+    DashboardView(manager: manager, selectedSession: selectedSession)
         .environmentObject(manager)
 }
 #endif
