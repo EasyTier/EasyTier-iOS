@@ -13,9 +13,12 @@ struct EasyTierApp: App {
         let values: [String: Any] = [
             "logLevel": LogLevel.info.rawValue,
             "statusRefreshInterval": 1.0,
+            "logPreservedLines": 1000,
             "useRealDeviceNameAsDefault": true,
             "plainTextIPInput": false,
             "profilesUseICloud": false,
+        ]
+        let sharedValues: [String: Any] = [
             "includeAllNetworks": false,
             "excludeLocalNetworks": false,
             "excludeCellularServices": true,
@@ -23,7 +26,8 @@ struct EasyTierApp: App {
             "excludeDeviceCommunication": true,
             "enforceRoutes": false,
         ]
-        UserDefaults(suiteName: APP_GROUP_ID)?.register(defaults: values)
+        UserDefaults.standard.register(defaults: values)
+        UserDefaults(suiteName: APP_GROUP_ID)?.register(defaults: sharedValues)
     }
 
     var body: some Scene {

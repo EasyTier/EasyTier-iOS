@@ -230,7 +230,7 @@ nonisolated struct NetworkConfig: Codable {
         case .custom:
             self.peer = profile.peerURLs.compactMap { $0.text.isEmpty ? nil : PeerConfig(uri: $0.text) }
         case .standalone:
-            break
+            self.peer = []
         }
         
         if !profile.listenerURLs.isEmpty {

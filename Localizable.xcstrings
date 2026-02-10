@@ -42,6 +42,9 @@
     "32" : {
       "shouldTranslate" : false
     },
+    "1000" : {
+      "shouldTranslate" : false
+    },
     "about.homepage" : {
       "localizations" : {
         "en" : {
@@ -2217,6 +2220,22 @@
         }
       }
     },
+    "log_preserved_lines" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log Lines Displayed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日志展示行数"
+          }
+        }
+      }
+    },
     "logging" : {
       "localizations" : {
         "en" : {
@@ -2350,13 +2369,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Assign routes cidr manually, will disable subnet proxy and wireguard routes propagated from peers. e.g.:192.168.0.0/16.\n"
+            "value" : "Assign routes cidr manually, will disable subnet proxy and WireGuard routes propagated from peers. e.g.:192.168.0.0/16.\n"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手动分配路由 CIDR，将禁用子网代理和从对等节点传播的 wireguard 路由。例如：192.168.0.0/16。"
+            "value" : "手动分配路由 CIDR，将禁用子网代理和从对等节点传播的 WireGuard 路由。例如：192.168.0.0/16。"
           }
         }
       }
@@ -3496,6 +3515,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重命名"
+          }
+        }
+      }
+    },
+    "reset" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置"
+          }
+        }
+      }
+    },
+    "reset_to_default" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Default Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置为默认设置"
+          }
+        }
+      }
+    },
+    "reset_to_default_confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Are you sure to reset to default settings?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确定要重置为默认设置吗？"
           }
         }
       }

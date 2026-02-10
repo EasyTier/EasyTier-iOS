@@ -2,27 +2,29 @@ import SwiftUI
 import NetworkExtension
 import EasyTierShared
 
-let defaults = UserDefaults(suiteName: APP_GROUP_ID)
+let sharedDefaults = UserDefaults(suiteName: APP_GROUP_ID)
 
 struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
     @ObservedObject var manager: Manager
     @AppStorage("logLevel") var logLevel: LogLevel = .info
     @AppStorage("statusRefreshInterval") var statusRefreshInterval: Double = 1.0
+    @AppStorage("logPreservedLines") var logPreservedLines: Int = 1000
     @AppStorage("useRealDeviceNameAsDefault") var useRealDeviceNameAsDefault: Bool = true
     @AppStorage("plainTextIPInput") var plainTextIPInput: Bool = false
     @AppStorage("profilesUseICloud") var profilesUseICloud: Bool = false
-    @AppStorage("includeAllNetworks", store: defaults) var includeAllNetworks: Bool = false
-    @AppStorage("excludeLocalNetworks", store: defaults) var excludeLocalNetworks: Bool = false
-    @AppStorage("excludeCellularServices", store: defaults) var excludeCellularServices: Bool = true
-    @AppStorage("excludeAPNs", store: defaults) var excludeAPNs: Bool = true
-    @AppStorage("excludeDeviceCommunication", store: defaults) var excludeDeviceCommunication: Bool = true
-    @AppStorage("enforceRoutes", store: defaults) var enforceRoutes: Bool = false
-    @State var selectedPane: SettingsPane?
+    @AppStorage("includeAllNetworks", store: sharedDefaults) var includeAllNetworks: Bool = false
+    @AppStorage("excludeLocalNetworks", store: sharedDefaults) var excludeLocalNetworks: Bool = false
+    @AppStorage("excludeCellularServices", store: sharedDefaults) var excludeCellularServices: Bool = true
+    @AppStorage("excludeAPNs", store: sharedDefaults) var excludeAPNs: Bool = true
+    @AppStorage("excludeDeviceCommunication", store: sharedDefaults) var excludeDeviceCommunication: Bool = true
+    @AppStorage("enforceRoutes", store: sharedDefaults) var enforceRoutes: Bool = false
+    @State private var selectedPane: SettingsPane?
     @State private var exportURL: URL?
     @State private var isExportPresented = false
     @State private var settingsErrorMessage: TextItem?
     @State private var isExporting = false
     @State private var isAlwaysOnUpdating = false
+    @State private var showResetAlert: Bool = false
     
     init(manager: Manager) {
         _manager = ObservedObject(wrappedValue: manager)
@@ -81,6 +83,16 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
                     }
                 }
                 .disabled(manager.status != .disconnected)
+                LabeledContent("log_preserved_lines") {
+                    TextField(
+                        "1000",
+                        value: $logPreservedLines,
+                        formatter: NumberFormatter()
+                    )
+                    .contentShape(Rectangle())
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.numberPad)
+                }
                 Button(action: {
                     exportOSLog()
                 }) {
@@ -112,6 +124,10 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
                 Text("advanced_help")
             }
             .disabled(manager.status != .disconnected)
+            
+            Button("reset_to_default", role: .destructive) {
+                showResetAlert = true
+            }
 
             Section("about.title") {
                 LabeledContent("app") {
@@ -128,6 +144,21 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
         }
         .alert(item: $settingsErrorMessage) { msg in
             Alert(title: Text("common.error"), message: Text(msg.text))
+        }
+        .alert(isPresented: $showResetAlert) {
+            Alert(
+                title: Text("reset_to_default"),
+                message: Text("reset_to_default_confirm"),
+                primaryButton: .destructive(Text("reset")) {
+                    UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
+                    UserDefaults.standard.synchronize()
+                    if let sharedDefaults {
+                        sharedDefaults.removePersistentDomain(forName: APP_GROUP_ID)
+                        sharedDefaults.synchronize()
+                    }
+                },
+                secondaryButton: .cancel(),
+            )
         }
         .sheet(isPresented: $isExportPresented) {
             if let url = exportURL {

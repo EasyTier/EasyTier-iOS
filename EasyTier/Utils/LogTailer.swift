@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Combine
 
 import EasyTierShared
@@ -12,6 +13,8 @@ class LogTailer: ObservableObject {
     @Published var logContent: [LogLine] = []
     @Published var errorMessage: TextItem?
     @Published var isWatching: Bool = false
+    
+    @AppStorage("logPreservedLines") var logPreservedLines: Int = 1000
     
     private var fileHandle: FileHandle?
     private var source: DispatchSourceFileSystemObject?
@@ -82,12 +85,15 @@ class LogTailer: ObservableObject {
     }
     
     private func updateLog(_ logs: String, replaceAll: Bool = false) {
-        var lines = replaceAll ? [] : self.logContent + logs
+        let newLines = logs
             .split(separator: "\n")
+            .suffix(logPreservedLines)
             .map { LogLine(text: String($0)) }
-        if lines.count > 1000 {
-            lines.removeFirst(lines.count - 1000)
-        }
+        let lines =
+            (replaceAll ? [] : self.logContent).suffix(
+                logPreservedLines - newLines.count
+            ) + newLines
+
         DispatchQueue.main.async {
             self.logContent = lines
         }
