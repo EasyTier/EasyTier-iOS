@@ -56,10 +56,13 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     var isPending: Bool {
         isLocalPending || [.connecting, .disconnecting, .reasserting].contains(manager.status)
     }
+    var hasSelectedProfile: Bool {
+        selectedSession.session != nil
+    }
 
     var mainView: some View {
         Group {
-            if selectedSession.session != nil {
+            if hasSelectedProfile {
                 if isConnected {
                     StatusView(currentProfile.networkName, manager: manager)
                 } else {
@@ -97,7 +100,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         }
     }
 
-    var sheetView: some View {
+    var manageSheet: some View {
         NavigationStack {
             Form {
                 Section("network") {
@@ -175,7 +178,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             } else {
                                 Image(systemName: "square.and.pencil")
                             }
-                            Text("profile.edit_as_text")
+                            Text("profile.edit_in_text")
                         }
                     }
                     Button {
@@ -270,7 +273,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                         .labelStyle(.titleAndIcon)
                         .padding(10)
                     }
-                    .disabled((selectedSession.session == nil && !isConnected) || manager.isLoading || isPending)
+                    .disabled((!hasSelectedProfile && !isConnected) || manager.isLoading || isPending)
                     .buttonStyle(.plain)
                     .foregroundStyle(isConnected ? Color.red : Color.accentColor)
                     .animation(.interactiveSpring, value: [isConnected, isPending])
@@ -280,7 +283,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         .onAppear {
             Task { @MainActor in
                 try? await manager.load()
-                if selectedSession.session == nil,
+                if !hasSelectedProfile,
                    let lastSelected {
                     await loadProfile(lastSelected)
                     if let options = try? NetworkExtensionManager.generateOptions(currentProfile) {
@@ -330,7 +333,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
             }
         }
         .sheet(isPresented: $showManageSheet) {
-            sheetView
+            manageSheet
                 .sheet(isPresented: $showEditSheet) {
                     NavigationStack {
                         VStack(spacing: 0) {
@@ -374,6 +377,10 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                     case .failure(let error):
                         errorMessage = .init(error.localizedDescription)
                     }
+                }
+                .alert(item: $errorMessage) { msg in
+                    dashboardLogger.error("received error: \(String(describing: msg))")
+                    return Alert(title: Text("common.error"), message: Text(msg.text))
                 }
         }
         .alert(item: $errorMessage) { msg in
@@ -463,7 +470,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
 
     private func exportSelectedProfile() {
         guard let session = selectedSession.session else {
-            errorMessage = .init("Please select a network.")
+            errorMessage = .init(String(localized: "no_network_selected"))
             return
         }
         let fileURL = try? ProfileStore.fileURL(forConfigName: session.name)
@@ -478,12 +485,12 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
 
     private func presentEditInText() {
         Task { @MainActor in
-            guard let session = selectedSession.session else {
-                errorMessage = .init("Please select a network.")
+            guard hasSelectedProfile else {
+                errorMessage = .init(String(localized: "no_network_selected"))
                 return
             }
             do {
-                let config = session.document.profile.toConfig()
+                let config = currentProfile.toConfig()
                 editText = try TOMLEncoder().encode(config).string ?? ""
                 showEditSheet = true
             } catch {
@@ -497,11 +504,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         Task { @MainActor in
             do {
                 let config = try TOMLDecoder().decode(NetworkConfig.self, from: editText)
-                guard let session = selectedSession.session else {
-                    errorMessage = .init("Please select a network.")
-                    return
-                }
-                session.document.profile = NetworkProfile(from: config)
+                currentProfile = NetworkProfile(from: config)
                 showEditSheet = false
             } catch {
                 dashboardLogger.error("edit save failed: \(error)")

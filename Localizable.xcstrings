@@ -1035,7 +1035,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "禁用对称NAT打洞"
+            "value" : "禁用对称 NAT 打洞"
           }
         }
       }
@@ -3247,12 +3247,12 @@
         }
       }
     },
-    "profile.edit_as_text" : {
+    "profile.edit_in_text" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Edit as Text"
+            "value" : "Edit in Text"
           }
         },
         "zh-Hans" : {

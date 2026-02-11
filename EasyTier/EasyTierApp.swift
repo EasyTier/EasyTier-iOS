@@ -20,7 +20,7 @@ struct EasyTierApp: App {
         ]
         let sharedValues: [String: Any] = [
             "includeAllNetworks": false,
-            "excludeLocalNetworks": false,
+            "excludeLocalNetworks": true,
             "excludeCellularServices": true,
             "excludeAPNs": true,
             "excludeDeviceCommunication": true,
