@@ -2,8 +2,12 @@ import Foundation
 import Combine
 import NetworkExtension
 import WidgetKit
-import UIKit
 import os
+#if os(iOS)
+import UIKit
+#else
+import SystemConfiguration
+#endif
 
 import EasyTierShared
 import TOMLKit
@@ -75,25 +79,28 @@ class NetworkExtensionManager: NetworkExtensionManagerProtocol {
                 object: manager.connection,
                 queue: .main
             ) { [weak self] notification in
-                guard let self else {
-                    return
+                nonisolated(unsafe) let connection = notification.object as? NEVPNConnection
+                MainActor.assumeIsolated {
+                    guard let self else {
+                        return
+                    }
+                    self.connection = connection
+                    self.status = self.connection?.status ?? .invalid
+                    self.connectedDate = self.connection?.connectedDate
+                    if self.status == .invalid {
+                        self.manager = nil
+                    }
+                    
+                    // Sync VPN connection status to App Group for Control Widget
+                    self.syncWidgetState()
                 }
-                self.connection = notification.object as? NEVPNConnection
-                self.status = self.connection?.status ?? .invalid
-                self.connectedDate = self.connection?.connectedDate
-                if self.status == .invalid {
-                    self.manager = nil
-                }
-                
-                // Sync VPN connection status to App Group for Control Widget
-                self.syncWidgetState()
             }
         }
     }
     
     // Notify Control Widget to refresh its state
     private func syncWidgetState() {
-        if #available(iOS 18.0, *) {
+        if #available(iOS 18.0, macOS 26.0, *) {
             ControlCenter.shared.reloadControls(ofKind: "\(APP_BUNDLE_ID).control")
         }
         WidgetCenter.shared.reloadTimelines(ofKind: "\(APP_BUNDLE_ID).widget")
@@ -163,7 +170,11 @@ class NetworkExtensionManager: NetworkExtensionManagerProtocol {
         var options = EasyTierOptions()
         var config = profile.toConfig()
         if config.hostname == nil && UserDefaults.standard.bool(forKey: "useRealDeviceNameAsDefault") {
+#if os(iOS)
             config.hostname = UIDevice.current.name
+#else
+            config.hostname = SCDynamicStoreCopyComputerName(nil, nil) as String?
+#endif
         }
 
         let encoded: String
@@ -231,7 +242,15 @@ class NetworkExtensionManager: NetworkExtensionManagerProtocol {
         }
 
         do {
-            try await connectWithManager(manager, logger: Self.logger)
+            let _: Void = try await withCheckedThrowingContinuation { continuation in
+                connectWithManager(manager, logger: Self.logger) { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
         } catch {
             Self.logger.error("connect() start vpn tunnel failed: \(String(describing: error))")
             throw error

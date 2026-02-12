@@ -18,7 +18,6 @@ class LogTailer: ObservableObject {
     
     private var fileHandle: FileHandle?
     private var source: DispatchSourceFileSystemObject?
-    private let queue = DispatchQueue(label: "\(APP_BUNDLE_ID).tailer", qos: .utility)
     
     /// Starts watching a specific file in an App Group
     func startWatching(appGroupID: String, filename: String, fromStart: Bool) {
@@ -51,7 +50,7 @@ class LogTailer: ObservableObject {
             let source = DispatchSource.makeFileSystemObjectSource(
                 fileDescriptor: fileDescriptor,
                 eventMask: .write,
-                queue: queue
+                queue: DispatchQueue.main
             )
             
             source.setEventHandler { [weak self] in
@@ -107,6 +106,8 @@ class LogTailer: ObservableObject {
     }
     
     deinit {
-        stop()
+        source?.cancel()
+        source = nil
+        fileHandle = nil
     }
 }

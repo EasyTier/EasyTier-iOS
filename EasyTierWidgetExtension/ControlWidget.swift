@@ -68,7 +68,7 @@ struct ToggleVPNIntent: SetValueIntent {
         }
 
         if value {
-            try await connectWithManager(manager)
+            connectWithManager(manager)
         } else {
             manager.connection.stopVPNTunnel()
         }

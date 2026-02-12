@@ -784,6 +784,22 @@
         }
       }
     },
+    "delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        }
+      }
+    },
     "details" : {
       "localizations" : {
         "en" : {
@@ -2369,7 +2385,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Assign routes cidr manually, will disable subnet proxy and WireGuard routes propagated from peers. e.g.:192.168.0.0/16.\n"
+            "value" : "Assign routes cidr manually, will disable subnet proxy and WireGuard routes propagated from peers. e.g.:192.168.0.0/16."
           }
         },
         "zh-Hans" : {

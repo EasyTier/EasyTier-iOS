@@ -4,8 +4,8 @@ import SwiftUI
 
 @available(iOS 18.0, *)
 struct NetworkProfileEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "easytier_network"
-    static var defaultQuery = NetworkProfileQuery()
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "easytier_network"
+    static let defaultQuery = NetworkProfileQuery()
 
     var id: String
     var name: String
@@ -65,9 +65,9 @@ enum IntentError: Swift.Error, CustomLocalizedStringResourceConvertible {
 
 @available(iOS 18.0, *)
 struct ConnectIntent: AppIntent {
-    static var title: LocalizedStringResource = "connect_easytier"
-    static var description: IntentDescription = IntentDescription("connect_to_easytier_network")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "connect_easytier"
+    static let description: IntentDescription = IntentDescription("connect_to_easytier_network")
+    static let openAppWhenRun: Bool = false
 
     @Parameter(title: "network")
     var network: NetworkProfileEntity?
@@ -83,9 +83,9 @@ struct ConnectIntent: AppIntent {
 
 @available(iOS 18.0, *)
 struct DisconnectIntent: AppIntent {
-    static var title: LocalizedStringResource = "disconnect_easytier"
-    static var description: IntentDescription = IntentDescription("disconnect_from_easytier_network")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "disconnect_easytier"
+    static let description: IntentDescription = IntentDescription("disconnect_from_easytier_network")
+    static let openAppWhenRun: Bool = false
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -98,9 +98,9 @@ struct DisconnectIntent: AppIntent {
 
 @available(iOS 18.0, *)
 struct ToggleConnectIntent: AppIntent {
-    static var title: LocalizedStringResource = "toggle_easytier"
-    static var description: IntentDescription = IntentDescription("toggle_easytier_network_connection")
-    static var openAppWhenRun: Bool = false
+    static let title: LocalizedStringResource = "toggle_easytier"
+    static let description: IntentDescription = IntentDescription("toggle_easytier_network_connection")
+    static let openAppWhenRun: Bool = false
 
     @Parameter(title: "network")
     var network: NetworkProfileEntity?

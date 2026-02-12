@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct IPv4Field: View {
+#if os(iOS)
     @AppStorage("plainTextIPInput") var plainTextIPInput: Bool = false
+#else
+    let plainTextIPInput = true
+#endif
     @Binding var ipAddress: String
     
     var length: Binding<String>?
@@ -19,11 +23,13 @@ struct IPv4Field: View {
     var body: some View {
         HStack(spacing: 0) {
             if plainTextIPInput {
-                TextField("0.0.0.0", text: $ipAddress)
-                    .keyboardType(.decimalPad)
+                TextField("0.0.0.0", text: $ipAddress, prompt: Text("0.0.0.0"))
+                    .labelsHidden()
+                    .decimalKeyboardType()
                     .multilineTextAlignment(.trailing)
                     .font(.body.monospaced())
             } else {
+#if os(iOS)
                 ForEach(0..<4, id: \.self) { index in
                     ipTextField(index: index)
                     
@@ -34,6 +40,7 @@ struct IPv4Field: View {
                             .padding(.bottom, 2)
                     }
                 }
+#endif
             }
             
             if let lengthBinding = length {
@@ -43,23 +50,26 @@ struct IPv4Field: View {
                     .padding(.bottom, 2)
                 
                 if plainTextIPInput {
-                    TextField("32", text: lengthBinding)
+                    TextField("32", text: lengthBinding, prompt: Text("32"))
+                        .labelsHidden()
                         .disabled(disabledLengthEdit)
-                        .keyboardType(.numberPad)
+                        .numberKeyboardType()
                         .multilineTextAlignment(.trailing)
                         .fixedSize(horizontal: true, vertical: false)
                         .font(.body.monospaced())
                 } else {
+#if os(iOS)
                     TextField("32", text: Binding(
                         get: { lengthBinding.wrappedValue },
                         set: { processLengthInput($0, binding: lengthBinding) }
                     ))
                     .disabled(disabledLengthEdit)
-                    .keyboardType(.numberPad)
+                    .numberKeyboardType()
                     .multilineTextAlignment(.center)
                     .frame(width: 40)
                     .focused($focusedField, equals: 4)
                     .font(.body.monospaced())
+#endif
                 }
             }
         }
@@ -73,6 +83,7 @@ struct IPv4Field: View {
         }
     }
     
+#if os(iOS)
     private func ipTextField(index: Int) -> some View {
         TextField("0", text: Binding(
             get: { octets[index] },
@@ -84,6 +95,7 @@ struct IPv4Field: View {
         .focused($focusedField, equals: index)
         .font(.body.monospaced())
     }
+#endif
     
     private func processOctetInput(oldValue: String, newValue: String, at index: Int) {
         if oldValue == newValue { return }

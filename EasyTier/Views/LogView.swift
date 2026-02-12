@@ -12,10 +12,12 @@ struct LogView: View {
     @StateObject private var tailer = LogTailer()
     @Namespace private var bottomID
     @State private var wasWatchingBeforeBackground = false
+#if os(iOS)
     @State private var exportURL: URL?
     @State private var isExportPresented = false
+#endif
     @State private var exportErrorMessage: TextItem?
-
+    
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading) {
@@ -39,26 +41,28 @@ struct LogView: View {
                         }
                     }
                 }
+#if os(iOS)
                 .background(Color(UIColor.systemGroupedBackground))
+#endif
             }
             .navigationTitle("logging")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: ToolbarLeading) {
                     Button(action: {
                         tailer.logContent = []
                     }) {
                         Image(systemName: "trash")
                     }.tint(.red)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: ToolbarTrailing) {
                     Button(action: {
                         presentExport()
                     }) {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: ToolbarTrailing) {
                     Button(action: {
                         if tailer.isWatching {
                             tailer.stop()
@@ -100,11 +104,13 @@ struct LogView: View {
         .alert(item: $exportErrorMessage) { msg in
             Alert(title: Text("common.error"), message: Text(msg.text))
         }
+#if os(iOS)
         .sheet(isPresented: $isExportPresented) {
             if let url = exportURL {
                 ShareSheet(activityItems: [url])
             }
         }
+#endif
     }
 
     private func presentExport() {
@@ -116,8 +122,16 @@ struct LogView: View {
             exportErrorMessage = .init("Log file not found.")
             return
         }
+#if os(iOS)
         exportURL = url
         isExportPresented = true
+#elseif os(macOS)
+        do {
+            try saveExportedFileToDisk(url)
+        } catch {
+            exportErrorMessage = .init(error.localizedDescription)
+        }
+#endif
     }
 }
 

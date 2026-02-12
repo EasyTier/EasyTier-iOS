@@ -24,7 +24,7 @@ struct VPNStatusProvider: TimelineProvider {
         VPNStatusEntry(date: Date(), isConnected: false, profileName: "")
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (VPNStatusEntry) -> Void) {
+    func getSnapshot(in context: Context, completion: @Sendable @escaping (VPNStatusEntry) -> Void) {
         Task {
             let isConnected = await fetchConnectionStatus()
             let profileName = fetchProfileName()
@@ -32,7 +32,7 @@ struct VPNStatusProvider: TimelineProvider {
         }
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<VPNStatusEntry>) -> Void) {
+    func getTimeline(in context: Context, completion: @Sendable @escaping (Timeline<VPNStatusEntry>) -> Void) {
         Task {
             let isConnected = await fetchConnectionStatus()
             let profileName = fetchProfileName()
@@ -122,7 +122,7 @@ struct VPNStatusWidgetView: View {
         .overlay(alignment: .bottomTrailing) {
             Group {
                 let text: LocalizedStringKey = entry.isConnected ? "vpn_disconnect" : "vpn_connect"
-                if #available(iOS 17.0, *) {
+                if #available(iOS 17.0, macOS 14.0, *) {
                     Button(text, intent: ToggleVPNConnectionIntent())
                 } else {
                     Button(text) {
@@ -167,7 +167,7 @@ struct ToggleVPNConnectionIntent: AppIntent {
         if isConnected {
             manager.connection.stopVPNTunnel()
         } else {
-            try await connectWithManager(manager)
+            connectWithManager(manager)
         }
 
         WidgetCenter.shared.reloadTimelines(ofKind: "\(APP_BUNDLE_ID).widget")
@@ -175,7 +175,7 @@ struct ToggleVPNConnectionIntent: AppIntent {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func widgetBackgroundStyle() -> some View {
         if #available(iOS 17.0, macOS 14.0, *) {
@@ -187,7 +187,7 @@ private extension View {
 }
 
 #if DEBUG
-@available(iOS 17.0, *)
+@available(iOS 17.0, macOS 14.0, *)
 #Preview(
     "Connected",
     as: .systemSmall,
@@ -199,7 +199,7 @@ private extension View {
     }
 )
 
-@available(iOS 17.0, *)
+@available(iOS 17.0, macOS 14.0, *)
 #Preview(
     "Connected Medium",
     as: .systemMedium,
@@ -211,7 +211,7 @@ private extension View {
     }
 )
 
-@available(iOS 17.0, *)
+@available(iOS 17.0, macOS 14.0, *)
 #Preview(
     "Disconnected",
     as: .systemSmall,

@@ -4,7 +4,7 @@ final class DarwinNotificationObserver {
     private let name: String
     private let callback: () -> Void
     
-    private var cfName: CFNotificationName {
+    nonisolated private var cfName: CFNotificationName {
         return CFNotificationName(name as CFString)
     }
 

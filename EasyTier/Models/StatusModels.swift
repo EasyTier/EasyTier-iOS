@@ -124,10 +124,10 @@ struct NetworkStatus: Codable {
                 ptr.storeBytes(of: p4, toByteOffset: 12, as: UInt32.self)
             }
             
-            var buffer = [Int8](repeating: 0, count: Int(INET6_ADDRSTRLEN))
+            var buffer = [UInt8](repeating: 0, count: Int(INET6_ADDRSTRLEN))
             
             if inet_ntop(AF_INET6, &addr, &buffer, socklen_t(INET6_ADDRSTRLEN)) != nil {
-                return String(cString: buffer)
+                return String(decoding: buffer.prefix(while: { $0 != 0 }), as: UTF8.self)
             }
             // fallback
             let parts = [part1, part2, part3, part4]

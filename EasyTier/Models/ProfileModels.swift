@@ -57,7 +57,7 @@ nonisolated struct NetworkProfile: Identifiable, Equatable {
         var length: String = ""
         
         var cidrString: String {
-            if cidr.isEmpty && length.isEmpty {
+            if cidr.isEmpty || length.isEmpty {
                 ""
             } else {
                 "\(cidr)/\(length)"
@@ -335,7 +335,7 @@ nonisolated struct NetworkProfile: Identifiable, Equatable {
         return config
     }
     
-    static let boolFlags: [BoolFlag] = [
+    @MainActor static let boolFlags: [BoolFlag] = [
         .init(
             keyPath: \.latencyFirst,
             label: "use_latency_first",

@@ -1,5 +1,5 @@
-#ifndef KERN_CONTROL_H
-#define KERN_CONTROL_H
+#ifndef KERN_CONTROL_h
+#define KERN_CONTROL_h
 
 
 #define CTLIOCGINFO 0xc0644e03UL

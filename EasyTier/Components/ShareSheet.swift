@@ -1,7 +1,27 @@
 import SwiftUI
-import UIKit
 
-struct ShareSheet: UIViewControllerRepresentable {
+#if os(iOS)
+import UIKit
+#endif
+
+struct ShareSheet: View {
+    let activityItems: [Any]
+    var applicationActivities: [Any]? = nil
+
+    var body: some View {
+#if os(iOS)
+        ShareActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: applicationActivities as? [UIActivity]
+        )
+#else
+        EmptyView()
+#endif
+    }
+}
+
+#if os(iOS)
+private struct ShareActivityViewController: UIViewControllerRepresentable {
     let activityItems: [Any]
     var applicationActivities: [UIActivity]? = nil
 
@@ -14,3 +34,22 @@ struct ShareSheet: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
+#endif
+
+#if os(macOS)
+import AppKit
+
+@MainActor
+func saveExportedFileToDisk(_ sourceURL: URL, suggestedName: String? = nil) throws {
+    let panel = NSSavePanel()
+    panel.canCreateDirectories = true
+    panel.nameFieldStringValue = suggestedName ?? sourceURL.lastPathComponent
+
+    guard panel.runModal() == .OK, let destinationURL = panel.url else { return }
+
+    if FileManager.default.fileExists(atPath: destinationURL.path) {
+        try FileManager.default.removeItem(at: destinationURL)
+    }
+    try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+}
+#endif

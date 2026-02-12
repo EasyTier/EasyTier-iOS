@@ -1,7 +1,9 @@
 import Combine
 import Foundation
 import SwiftUI
+#if os(iOS)
 import UIKit
+#endif
 
 import EasyTierShared
 
@@ -45,7 +47,10 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
     var body: some View {
         Group {
             if sizeClass == .regular {
-                doubleComlum
+                ViewThatFits(in: .horizontal) {
+                    doubleComlum
+                    singleColumn
+                }
             } else {
                 singleColumn
             }
@@ -113,7 +118,7 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
                 }
             }
 
-            Section("common.info") {
+            let info = Group {
                 Picker(
                     "common.info",
                     selection: $selectedInfoKind
@@ -131,7 +136,13 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
                     TimelineLogPanel(events: status?.events ?? [])
                 }
             }
+#if os(iOS)
+            Section("common.info") { info }
+#else
+            info
+#endif
         }
+        .formStyle(.grouped)
     }
     
     var doubleComlum: some View {
@@ -155,12 +166,15 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
                     peerInfo
                 }
             }
-            .frame(maxWidth: columnWidth)
+            .frame(minWidth: columnMinWidth, maxWidth: columnMaxWidth)
+            .formStyle(.grouped)
             Form {
                 Section("event_log") {
                     TimelineLogPanel(events: status?.events ?? [])
                 }
             }
+            .frame(minWidth: columnMinWidth)
+            .formStyle(.grouped)
         }
     }
     
@@ -283,7 +297,11 @@ struct PeerRowView<RightView>: View where RightView: View {
             ZStack {
                 Circle()
                     .fill(color.opacity(0.1))
+#if os(iOS)
                     .frame(width: 44, height: 44)
+#else
+                    .frame(width: 36, height: 36)
+#endif
                 Image(systemName: iconSystemName)
                     .foregroundStyle(color)
                     .symbolRenderingMode(.monochrome)
@@ -324,6 +342,7 @@ struct LocalPeerRowView: View {
     let myNodeInfo: NetworkStatus.MyNodeInfo
     
     var iconSystemName: String {
+#if os(iOS)
         switch UIDevice.current.userInterfaceIdiom {
         case .phone:
             "iphone"
@@ -336,6 +355,9 @@ struct LocalPeerRowView: View {
         default:
             "macmini"
         }
+#else
+        "macbook"
+#endif
     }
     
     var firstLineText: String {
@@ -585,7 +607,7 @@ struct StatItem: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if #available(iOS 26.0, *) {
+            if #available(iOS 26.0, macOS 26.0, *) {
                 Label(label, systemImage: icon)
                     .font(.caption)
                     .foregroundStyle(.secondary)

@@ -4,15 +4,12 @@ struct NetworkEditView: View {
     @Environment(\.horizontalSizeClass) var sizeClass
     @Binding var profile: NetworkProfile
     @State var showProxyCIDREditor = false
-    @State var editingProxyCIDR: NetworkProfile.ProxyCIDR?
+    @State var editingProxyCIDR: NetworkProfile.ProxyCIDR = .init()
     @State var selectedPane: EditPane?
 
     enum EditPane: Identifiable, Hashable {
         var id: Self { self }
-        case advanced
-        case dns
-        case route
-        case portForwards
+        case advanced, dns, route, portForwards
     }
     
     var body: some View {
@@ -20,6 +17,7 @@ struct NetworkEditView: View {
     }
     
     var primaryColumn: some View {
+#if os(iOS)
         List(selection: $selectedPane) {
             basicSettings
             NavigationLink("advanced_settings", value: EditPane.advanced)
@@ -28,6 +26,16 @@ struct NetworkEditView: View {
             NavigationLink("port_forwards", value: EditPane.portForwards)
         }
         .scrollDismissesKeyboard(.immediately)
+#else
+        Form {
+            basicSettings
+            NavigationLink("advanced_settings") { advancedSettings }
+            NavigationLink("dns_settings") { dnsSettings }
+            NavigationLink("route_settings") { routeSettings }
+            NavigationLink("port_forwards") { portForwardsSettings }
+        }
+        .formStyle(.grouped)
+#endif
     }
     
     var secondaryColumn: some View {
@@ -43,7 +51,9 @@ struct NetworkEditView: View {
                 portForwardsSettings
             case nil:
                 ZStack {
+#if os(iOS)
                     Color(.systemGroupedBackground)
+#endif
                     Image(systemName: "network")
                         .resizable()
                         .frame(width: 128, height: 128)
@@ -69,20 +79,32 @@ struct NetworkEditView: View {
 
             Section("network") {
                 LabeledContent("network_name") {
-                    TextField("easytier", text: $profile.networkName)
+                    TextField(
+                        "easytier",
+                        text: $profile.networkName,
+                        prompt: Text("easytier")
+                    )
+                        .labelsHidden()
                         .multilineTextAlignment(.trailing)
                 }
                 
                 LabeledContent("network_secret") {
                     SecureField(
                         "common_text.empty",
-                        text: $profile.networkSecret
+                        text: $profile.networkSecret,
+                        prompt: Text("common_text.empty")
                     )
+                    .labelsHidden()
                     .multilineTextAlignment(.trailing)
                 }
                 
                 LabeledContent("hostname") {
-                    TextField("common_text.default", text: $profile.hostname)
+                    TextField(
+                        "common_text.default",
+                        text: $profile.hostname,
+                        prompt: Text("common_text.default")
+                    )
+                        .labelsHidden()
                         .multilineTextAlignment(.trailing)
                 }
             }
@@ -107,7 +129,12 @@ struct NetworkEditView: View {
                     }
                 case .custom:
                     ListEditor(newItemTitle: "common_text.add_peer", items: $profile.peerURLs, addItemFactory: { "" }, rowContent: {
-                        TextField("example.peer_url", text: $0.text)
+                        TextField(
+                            "example.peer_url",
+                            text: $0.text,
+                            prompt: Text("example.peer_url")
+                        )
+                            .labelsHidden()
                             .font(.body.monospaced())
                     })
                 case .standalone:
@@ -132,10 +159,12 @@ struct NetworkEditView: View {
                                     $profile.mtu.wrappedValue = Int(newValue)
                                 }
                             }
-                        )
+                        ),
+                        prompt: Text("common_text.default")
                     )
+                    .labelsHidden()
                     .multilineTextAlignment(.trailing)
-                    .keyboardType(.numberPad)
+                    .numberKeyboardType()
                 }
             } header: {
                 Text("general")
@@ -156,17 +185,24 @@ struct NetworkEditView: View {
                         TextField(
                             "example.vpn_portal_listen_port",
                             value: $profile.vpnPortalListenPort,
-                            formatter: NumberFormatter()
+                            formatter: NumberFormatter(),
+                            prompt: Text("example.vpn_portal_listen_port")
                         )
+                        .labelsHidden()
                         .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
+                        .numberKeyboardType()
                     }
                 }
             }
             
             Section("listener_urls") {
                 ListEditor(newItemTitle: "common_text.add_listener_url", items: $profile.listenerURLs, addItemFactory: { "" }, rowContent: {
-                    TextField("example.listener_url", text: $0.text)
+                    TextField(
+                        "example.listener_url",
+                        text: $0.text,
+                        prompt: Text("example.listener_url")
+                    )
+                        .labelsHidden()
                         .font(.body.monospaced())
                 })
             }
@@ -175,7 +211,12 @@ struct NetworkEditView: View {
                 Toggle("common_text.enable", isOn: $profile.enableRelayNetworkWhitelist)
                 if profile.enableRelayNetworkWhitelist {
                     ListEditor(newItemTitle: "common_text.add_network", items: $profile.relayNetworkWhitelist, addItemFactory: { "" }, rowContent: {
-                        TextField("example.network_name", text: $0.text)
+                        TextField(
+                            "example.network_name",
+                            text: $0.text,
+                            prompt: Text("example.network_name")
+                        )
+                            .labelsHidden()
                             .font(.body.monospaced())
                     })
                 }
@@ -195,17 +236,24 @@ struct NetworkEditView: View {
                         TextField(
                             "example.socks5_port",
                             value: $profile.socks5Port,
-                            formatter: NumberFormatter()
+                            formatter: NumberFormatter(),
+                            prompt: Text("example.socks5_port")
                         )
+                        .labelsHidden()
                         .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
+                        .numberKeyboardType()
                     }
                 }
             }
             
             Section {
                 ListEditor(newItemTitle: "common_text.add_map_listener", items: $profile.mappedListeners, addItemFactory: { "" }, rowContent: {
-                    TextField("example.mapped_listener_url", text: $0.text)
+                    TextField(
+                        "example.mapped_listener_url",
+                        text: $0.text,
+                        prompt: Text("example.mapped_listener_url")
+                    )
+                        .labelsHidden()
                         .font(.body.monospaced())
                 })
             } header: {
@@ -232,6 +280,7 @@ struct NetworkEditView: View {
         }
         .navigationTitle("advanced_settings")
         .scrollDismissesKeyboard(.immediately)
+        .formStyle(.grouped)
     }
     
     var dnsSettings: some View {
@@ -245,8 +294,10 @@ struct NetworkEditView: View {
                     LabeledContent("tld_dns_zone") {
                         TextField(
                             "example.tld_dns_zone",
-                            text: $profile.magicDNSTLD
+                            text: $profile.magicDNSTLD,
+                            prompt: Text("example.tld_dns_zone")
                         )
+                        .labelsHidden()
                         .multilineTextAlignment(.trailing)
                     }
                 }
@@ -279,6 +330,7 @@ struct NetworkEditView: View {
         }
         .navigationTitle("dns_settings")
         .scrollDismissesKeyboard(.immediately)
+        .formStyle(.grouped)
     }
     
     var routeSettings: some View {
@@ -323,6 +375,7 @@ struct NetworkEditView: View {
         .sheet(isPresented: $showProxyCIDREditor) {
             proxyCIDREditor
         }
+        .formStyle(.grouped)
     }
 
     var portForwardsSettings: some View {
@@ -341,15 +394,22 @@ struct NetworkEditView: View {
                         .frame(width: 160)
                     }
                     HStack {
-                        TextField("port_forwards_bind_addr", text: $forward.bindAddr)
+                        TextField(
+                            "port_forwards_bind_addr",
+                            text: $forward.bindAddr,
+                            prompt: Text("port_forwards_bind_addr")
+                        )
+                        .labelsHidden()
                         Text(":")
                         TextField(
                             "port",
                             value: $forward.bindPort,
-                            formatter: NumberFormatter()
+                            formatter: NumberFormatter(),
+                            prompt: Text("port")
                         )
+                        .labelsHidden()
                         .frame(width: 60)
-                        .keyboardType(.numberPad)
+                        .numberKeyboardType()
                     }
                     HStack {
                         Image(systemName: "arrow.down")
@@ -358,15 +418,22 @@ struct NetworkEditView: View {
                     .foregroundColor(.secondary)
                     .font(.caption)
                     HStack {
-                        TextField("port_forwards_dst_addr", text: $forward.destAddr)
+                        TextField(
+                            "port_forwards_dst_addr",
+                            text: $forward.destAddr,
+                            prompt: Text("port_forwards_dst_addr")
+                        )
+                        .labelsHidden()
                         Text(":")
                         TextField(
                             "port",
                             value: $forward.destPort,
-                            formatter: NumberFormatter()
+                            formatter: NumberFormatter(),
+                            prompt: Text("port")
                         )
+                        .labelsHidden()
                         .frame(width: 60)
-                        .keyboardType(.numberPad)
+                        .numberKeyboardType()
                     }
                 }
                 .padding(.vertical, 5)
@@ -374,6 +441,7 @@ struct NetworkEditView: View {
         }
         .navigationTitle("port_forwards")
         .scrollDismissesKeyboard(.immediately)
+        .formStyle(.grouped)
     }
     
     var proxyCIDRsSettings: some View {
@@ -405,50 +473,48 @@ struct NetworkEditView: View {
                 }
             })
         }
+        .formStyle(.grouped)
     }
     
     var proxyCIDREditor: some View {
         NavigationStack {
-            Group {
-                if let proxyCIDR = Binding($editingProxyCIDR) {
-                    Form {
-                        Section("common_text.proxy_cidr") {
-                            LabeledContent("cidr") {
-                                IPv4Field(ip: proxyCIDR.cidr, length: proxyCIDR.length)
-                            }
-                        }
-                        Section("common_text.mapped_cidr") {
-                            Toggle("common_text.enable", isOn: proxyCIDR.enableMapping)
-                            if proxyCIDR.enableMapping.wrappedValue {
-                                LabeledContent("cidr") {
-                                    IPv4Field(ip: proxyCIDR.mappedCIDR, length: proxyCIDR.length, disabledLengthEdit: true)
-                                }
-                            }
+            Form {
+                Section("common_text.proxy_cidr") {
+                    LabeledContent("cidr") {
+                        IPv4Field(ip: $editingProxyCIDR.cidr, length: $editingProxyCIDR.length)
+                    }
+                }
+                Section("common_text.mapped_cidr") {
+                    Toggle("common_text.enable", isOn: $editingProxyCIDR.enableMapping)
+                    if editingProxyCIDR.enableMapping {
+                        LabeledContent("cidr") {
+                            IPv4Field(ip: $editingProxyCIDR.mappedCIDR, length: $editingProxyCIDR.length, disabledLengthEdit: true)
                         }
                     }
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("common_text.edit_proxy_cidr")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
             .toolbar {
-                Button {
-                    showProxyCIDREditor = false
-                    if let editingProxyCIDR {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        showProxyCIDREditor = false
                         if let index = (profile.proxyCIDRs.firstIndex { $0.id == editingProxyCIDR.id }) {
                             profile.proxyCIDRs[index] = editingProxyCIDR
                         }
+                    } label: {
+                        Image(systemName: "checkmark")
                     }
-                } label: {
-                    Image(systemName: "checkmark")
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
             }
         }
     }
 }
 
 #if DEBUG
-@available(iOS 17.0, *)
+@available(iOS 17.0, macOS 14.0, *)
 #Preview("Network Edit Portrait") {
     @Previewable @State var profile = NetworkProfile()
     NavigationStack {

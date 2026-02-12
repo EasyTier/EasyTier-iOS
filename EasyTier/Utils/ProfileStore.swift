@@ -2,11 +2,130 @@ import Foundation
 import SwiftUI
 import os
 import TOMLKit
-import UIKit
 import EasyTierShared
 import Combine
+import UniformTypeIdentifiers
 
 nonisolated let profileStoreLogger = Logger(subsystem: APP_BUNDLE_ID, category: "profile.store")
+
+private func coordinatedWrite(_ data: Data, to url: URL) throws {
+    var coordinationError: NSError?
+    var writeError: Error?
+    let fileExists = FileManager.default.fileExists(atPath: url.path)
+    let options: NSFileCoordinator.WritingOptions = fileExists ? .forReplacing : []
+
+    NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: options, error: &coordinationError) { coordinatedURL in
+        do {
+            try data.write(to: coordinatedURL, options: .atomic)
+        } catch {
+            writeError = error
+        }
+    }
+
+    if let writeError {
+        throw writeError
+    }
+    if let coordinationError {
+        throw coordinationError
+    }
+}
+
+private func coordinatedRead(from url: URL) throws -> Data {
+    var coordinationError: NSError?
+    var readError: Error?
+    var readData = Data()
+
+    NSFileCoordinator(filePresenter: nil).coordinate(readingItemAt: url, options: [], error: &coordinationError) { coordinatedURL in
+        do {
+            readData = try Data(contentsOf: coordinatedURL)
+        } catch {
+            readError = error
+        }
+    }
+
+    if let readError {
+        throw readError
+    }
+    if let coordinationError {
+        throw coordinationError
+    }
+    return readData
+}
+
+private func coordinatedDelete(at url: URL) throws {
+    var coordinationError: NSError?
+    var deleteError: Error?
+    NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forDeleting, error: &coordinationError) { coordinatedURL in
+        do {
+            try FileManager.default.removeItem(at: coordinatedURL)
+        } catch {
+            deleteError = error
+        }
+    }
+    if let deleteError {
+        throw deleteError
+    }
+    if let coordinationError {
+        throw coordinationError
+    }
+}
+
+private func coordinatedMove(from sourceURL: URL, to targetURL: URL) throws {
+    var coordinationError: NSError?
+    var moveError: Error?
+    let destinationExists = FileManager.default.fileExists(atPath: targetURL.path)
+    let destinationOptions: NSFileCoordinator.WritingOptions = destinationExists ? .forReplacing : []
+
+    NSFileCoordinator(filePresenter: nil).coordinate(
+        writingItemAt: sourceURL,
+        options: .forMoving,
+        writingItemAt: targetURL,
+        options: destinationOptions,
+        error: &coordinationError
+    ) { coordinatedSourceURL, coordinatedTargetURL in
+        do {
+            if FileManager.default.fileExists(atPath: coordinatedTargetURL.path) {
+                try FileManager.default.removeItem(at: coordinatedTargetURL)
+            }
+            try FileManager.default.moveItem(at: coordinatedSourceURL, to: coordinatedTargetURL)
+        } catch {
+            moveError = error
+        }
+    }
+
+    if let moveError {
+        throw moveError
+    }
+    if let coordinationError {
+        throw coordinationError
+    }
+}
+
+private func coordinatedDirectoryContents(at directoryURL: URL) throws -> [URL] {
+    var coordinationError: NSError?
+    var readError: Error?
+    var result: [URL] = []
+
+    NSFileCoordinator(filePresenter: nil).coordinate(readingItemAt: directoryURL, options: [], error: &coordinationError) { coordinatedURL in
+        do {
+            result = try FileManager.default.contentsOfDirectory(
+                at: coordinatedURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+        } catch {
+            readError = error
+        }
+    }
+
+    if let readError {
+        throw readError
+    }
+    if let coordinationError {
+        throw coordinationError
+    }
+    return result
+}
 
 extension Notification.Name {
     static let profileDocumentConflictDetected = Notification.Name("ProfileDocumentConflictDetected")
@@ -33,45 +152,126 @@ struct ConflictInfo: Identifiable {
     let modificationDate: Date?
 }
 
-final class ProfileDocument: UIDocument {
+struct ProfileDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.plainText] }
+
     var profile = NetworkProfile()
     private(set) var lastLoadError: Error?
 
-    override func load(fromContents contents: Any, ofType typeName: String?) throws {
-        profileStoreLogger.debug("ProfileDocument.load()")
-        lastLoadError = nil
-        let data: Data?
-        if let rawData = contents as? Data {
-            data = rawData
-        } else if let wrapper = contents as? FileWrapper {
-            data = wrapper.regularFileContents
-        } else {
-            data = nil
-        }
+    init(profile: NetworkProfile = NetworkProfile(), lastLoadError: Error? = nil) {
+        self.profile = profile
+        self.lastLoadError = lastLoadError
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        self = Self.decode(from: configuration.file.regularFileContents)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = try Self.encode(profile)
+        return .init(regularFileWithContents: data)
+    }
+
+    static func load(from url: URL) throws -> Self {
+        let data = try coordinatedRead(from: url)
+        return decode(from: data)
+    }
+
+    func save(to url: URL) throws {
+        let data = try Self.encode(profile)
+        try coordinatedWrite(data, to: url)
+    }
+
+    private static func decode(from data: Data?) -> Self {
         let text = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            profile = NetworkProfile()
-            return
+            return Self(profile: NetworkProfile())
         }
         do {
             let config = try TOMLDecoder().decode(NetworkConfig.self, from: text)
-            profile = NetworkProfile(from: config)
+            return Self(profile: NetworkProfile(from: config))
         } catch {
-            lastLoadError = error
             profileStoreLogger.error("document load decode failed: \(error.localizedDescription)")
-            profile = NetworkProfile()
+            return Self(profile: NetworkProfile(), lastLoadError: error)
         }
     }
 
-    override func contents(forType typeName: String) throws -> Any {
-        profileStoreLogger.debug("ProfileDocument.contents()")
+    private static func encode(_ profile: NetworkProfile) throws -> Data {
         let config = profile.toConfig()
         let encoded = try TOMLEncoder().encode(config).string ?? ""
         return encoded.data(using: .utf8) ?? Data()
     }
+}
 
-    func markDirty() {
-        updateChangeCount(.done)
+final class ProfileConflictMetadataObserver: NSObject {
+    private let fileURL: URL
+    private let onPotentialConflict: () -> Void
+    private let query = NSMetadataQuery()
+    private var observers: [NSObjectProtocol] = []
+
+    init(fileURL: URL, onPotentialConflict: @escaping () -> Void) {
+        self.fileURL = fileURL
+        self.onPotentialConflict = onPotentialConflict
+    }
+
+    deinit {
+        stop()
+    }
+
+    func start() {
+        let fileName = fileURL.lastPathComponent
+        query.searchScopes = [
+            NSMetadataQueryUbiquitousDocumentsScope,
+            fileURL.deletingLastPathComponent().path
+        ]
+        query.predicate = NSPredicate(format: "%K == %@", NSMetadataItemFSNameKey, fileName)
+
+        let center = NotificationCenter.default
+        observers.append(
+            center.addObserver(
+                forName: .NSMetadataQueryDidFinishGathering,
+                object: query,
+                queue: nil
+            ) { [weak self] _ in
+                self?.handleQueryChanged()
+            }
+        )
+        observers.append(
+            center.addObserver(
+                forName: .NSMetadataQueryDidUpdate,
+                object: query,
+                queue: nil
+            ) { [weak self] _ in
+                self?.handleQueryChanged()
+            }
+        )
+
+        query.start()
+    }
+
+    func stop() {
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observers.removeAll()
+        query.stop()
+    }
+
+    private func handleQueryChanged() {
+        query.disableUpdates()
+        defer { query.enableUpdates() }
+
+        let target = fileURL.standardizedFileURL
+        for item in query.results {
+            guard let metadata = item as? NSMetadataItem,
+                  let resultURL = metadata.value(forAttribute: NSMetadataItemURLKey) as? URL else {
+                continue
+            }
+            if resultURL.standardizedFileURL == target {
+                onPotentialConflict()
+                return
+            }
+        }
     }
 }
 
@@ -95,80 +295,81 @@ actor ProfileSessionQueue {
     }
 }
 
+@MainActor
 final class ProfileSession: ObservableObject, Equatable {
     static func == (lhs: ProfileSession, rhs: ProfileSession) -> Bool {
         lhs.name == rhs.name
     }
-    
+
     let name: String
     let fileURL: URL
-    let document: ProfileDocument
+    var document: ProfileDocument
     private let queue = ProfileSessionQueue()
-    private var stateObserver: NSObjectProtocol?
+    private var conflictObserver: ProfileConflictMetadataObserver?
     private var hasNotifiedConflict = false
 
     init(name: String, fileURL: URL, document: ProfileDocument) {
         self.name = name
         self.fileURL = fileURL
         self.document = document
-        self.document.markDirty()
         registerConflictObserver()
     }
 
+    @MainActor
     deinit {
         unregisterConflictObserver()
     }
 
     func save() async throws {
         try await queue.enqueue {
-            if self.document.documentState.contains(.closed) {
-                try await ProfileStore.openDocument(self.document)
-            }
-            if self.document.documentState.contains(.inConflict) {
+            if ProfileStore.hasUnresolvedConflict(at: self.fileURL) {
                 profileStoreLogger.error("document in conflict: \(self.fileURL.path)")
                 throw ProfileStoreError.conflict(self.fileURL)
             }
-            self.document.markDirty()
-            let fileExists = FileManager.default.fileExists(atPath: self.fileURL.path)
-            let operation: UIDocument.SaveOperation = fileExists ? .forOverwriting : .forCreating
-            try await ProfileStore.saveDocument(self.document, to: self.fileURL, for: operation)
+            try self.document.save(to: self.fileURL)
+            self.notifyConflictIfNeeded()
         }
     }
 
     func close() async {
         unregisterConflictObserver()
-        await ProfileStore.closeDocument(self.document)
     }
 
     private func registerConflictObserver() {
-        stateObserver = NotificationCenter.default.addObserver(
-            forName: UIDocument.stateChangedNotification,
-            object: document,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            let inConflict = self.document.documentState.contains(.inConflict)
-            if inConflict && !self.hasNotifiedConflict {
-                self.hasNotifiedConflict = true
-                profileStoreLogger.error("document state changed to conflict: \(self.fileURL.path)")
-                NotificationCenter.default.post(
-                    name: .profileDocumentConflictDetected,
-                    object: nil,
-                    userInfo: [
-                        "configName": self.name,
-                        "fileURL": self.fileURL
-                    ]
-                )
-            } else if !inConflict {
-                self.hasNotifiedConflict = false
+        let observer = ProfileConflictMetadataObserver(fileURL: fileURL) { [weak self] in
+            Task { @MainActor in
+                self?.notifyConflictIfNeeded()
             }
+        }
+        conflictObserver = observer
+        observer.start()
+        Task { @MainActor in
+            self.notifyConflictIfNeeded()
         }
     }
 
     private func unregisterConflictObserver() {
-        if let stateObserver {
-            NotificationCenter.default.removeObserver(stateObserver)
-            self.stateObserver = nil
+        if let conflictObserver {
+            conflictObserver.stop()
+            self.conflictObserver = nil
+        }
+    }
+
+    private func notifyConflictIfNeeded() {
+        let inConflict = ProfileStore.hasUnresolvedConflict(at: fileURL)
+        if inConflict && !hasNotifiedConflict {
+            hasNotifiedConflict = true
+            profileStoreLogger.error("document state changed to conflict: \(self.fileURL.path)")
+            NotificationCenter.default.post(
+                name: .profileDocumentConflictDetected,
+                object: nil,
+                userInfo: [
+                    "configName": name,
+                    "fileURL": fileURL
+                ]
+            )
+        } else if !inConflict {
+            hasNotifiedConflict = false
         }
     }
 }
@@ -200,11 +401,7 @@ enum ProfileStore {
         guard FileManager.default.fileExists(atPath: directoryURL.path) else {
             return []
         }
-        let fileURLs = try FileManager.default.contentsOfDirectory(
-            at: directoryURL,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )
+        let fileURLs = try coordinatedDirectoryContents(at: directoryURL)
         var profiles: [String] = []
         for fileURL in fileURLs where fileURL.pathExtension.lowercased() == "toml" {
             let configName = fileURL.deletingPathExtension().lastPathComponent
@@ -218,7 +415,7 @@ enum ProfileStore {
         let config = profile.toConfig()
         let encoded = try TOMLEncoder().encode(config).string ?? ""
         let data = encoded.data(using: .utf8) ?? Data()
-        try data.write(to: fileURL, options: .atomic)
+        try coordinatedWrite(data, to: fileURL)
     }
 
     static func renameProfileFile(from configName: String, to newConfigName: String) throws {
@@ -227,16 +424,13 @@ enum ProfileStore {
         let sourceURL = directoryURL.appendingPathComponent("\(sanitizedFileName(configName, fallback: configName)).toml")
         let targetURL = directoryURL.appendingPathComponent("\(sanitizedFileName(newConfigName, fallback: newConfigName)).toml")
         guard sourceURL != targetURL else { return }
-        if FileManager.default.fileExists(atPath: targetURL.path) {
-            try FileManager.default.removeItem(at: targetURL)
-        }
-        try FileManager.default.moveItem(at: sourceURL, to: targetURL)
+        try coordinatedMove(from: sourceURL, to: targetURL)
     }
 
     static func deleteProfile(named configName: String) throws {
         let fileURL = try fileURL(forConfigName: configName)
         if FileManager.default.fileExists(atPath: fileURL.path) {
-            try FileManager.default.removeItem(at: fileURL)
+            try coordinatedDelete(at: fileURL)
         }
     }
 
@@ -287,19 +481,17 @@ enum ProfileStore {
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             throw CocoaError(.fileNoSuchFile)
         }
-        let document = ProfileDocument(fileURL: fileURL)
-        try await openDocument(document)
-        let loadError = document.lastLoadError
-        let inConflict = document.documentState.contains(.inConflict)
-        if let error = loadError {
-            await closeDocument(document)
-            throw error
-        }
-        if inConflict {
+
+        if hasUnresolvedConflict(at: fileURL) {
             profileStoreLogger.error("document in conflict: \(fileURL.path)")
-            await closeDocument(document)
             throw ProfileStoreError.conflict(fileURL)
         }
+
+        let document = try ProfileDocument.load(from: fileURL)
+        if let error = document.lastLoadError {
+            throw error
+        }
+
         return ProfileSession(name: configName, fileURL: fileURL, document: document)
     }
 
@@ -321,8 +513,8 @@ enum ProfileStore {
         guard let versionedURL = latest?.url else {
             throw ProfileStoreError.conflictResolutionFailed
         }
-        let data = try Data(contentsOf: versionedURL)
-        try data.write(to: url, options: .atomic)
+        let data = try coordinatedRead(from: versionedURL)
+        try coordinatedWrite(data, to: url)
         for version in conflicts {
             version.isResolved = true
         }
@@ -370,39 +562,8 @@ enum ProfileStore {
         throw ProfileStoreError.conflictResolutionFailed
     }
 
-    fileprivate static func openDocument(_ document: ProfileDocument) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            document.open { success in
-                if success {
-                    continuation.resume(returning: ())
-                } else {
-                    continuation.resume(throwing: CocoaError(.fileReadUnknown))
-                }
-            }
-        }
-    }
-
-    fileprivate static func saveDocument(
-        _ document: ProfileDocument,
-        to url: URL,
-        for operation: UIDocument.SaveOperation
-    ) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            document.save(to: url, for: operation) { success in
-                if success {
-                    continuation.resume(returning: ())
-                } else {
-                    continuation.resume(throwing: CocoaError(.fileWriteUnknown))
-                }
-            }
-        }
-    }
-
-    fileprivate static func closeDocument(_ document: ProfileDocument) async {
-        await withCheckedContinuation { continuation in
-            document.close { _ in
-                continuation.resume()
-            }
-        }
+    fileprivate static func hasUnresolvedConflict(at url: URL) -> Bool {
+        let conflicts = NSFileVersion.unresolvedConflictVersionsOfItem(at: url)
+        return !(conflicts?.isEmpty ?? true)
     }
 }

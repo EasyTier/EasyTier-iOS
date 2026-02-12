@@ -2,11 +2,11 @@ import Foundation
 import OSLog
 
 enum OSLogExporter {
-    private static let dateFormatter: ISO8601DateFormatter = {
+    private static var dateFormatter: ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }()
+    }
 
     enum ExportError: Error {
         case containerUnavailable

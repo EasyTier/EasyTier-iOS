@@ -216,6 +216,8 @@ nonisolated struct NetworkConfig: Codable {
         self.instanceName = profile.networkName
         if !profile.hostname.isEmpty {
             self.hostname = profile.hostname
+        } else {
+            self.hostname = nil
         }
         self.dhcp = profile.dhcp
         self.networkIdentity = NetworkIdentity(networkName: profile.networkName, networkSecret: profile.networkSecret)
@@ -233,27 +235,23 @@ nonisolated struct NetworkConfig: Codable {
             self.peer = []
         }
         
-        if !profile.listenerURLs.isEmpty {
-            self.listeners = profile.listenerURLs.compactMap { $0.text.isEmpty ? nil : $0.text }
+        self.listeners = profile.listenerURLs.compactMap { $0.text.isEmpty ? nil : $0.text }
+
+        self.proxyNetwork = profile.proxyCIDRs.compactMap { cidr in
+            let cidrString = cidr.cidrString
+            guard !cidrString.isEmpty else { return nil }
+            return ProxyNetworkConfig(
+                cidr: cidrString,
+                mappedCIDR: cidr.enableMapping ? cidr.mappedCIDRString : nil,
+            )
         }
-        
-        if !profile.proxyCIDRs.isEmpty {
-            self.proxyNetwork = profile.proxyCIDRs.map { cidr in
-                ProxyNetworkConfig(
-                    cidr: cidr.cidrString,
-                    mappedCIDR: cidr.enableMapping ? cidr.mappedCIDRString : nil,
-                )
-            }
-        }
-        
-        if !profile.portForwards.isEmpty {
-            self.portForward = profile.portForwards.map {
-                PortForwardConfig(
-                    bindAddr: "\($0.bindAddr):\($0.bindPort)",
-                    dstAddr: "\($0.destAddr):\($0.destPort)",
-                    proto: $0.proto,
-                )
-            }
+
+        self.portForward = profile.portForwards.map {
+            PortForwardConfig(
+                bindAddr: "\($0.bindAddr):\($0.bindPort)",
+                dstAddr: "\($0.destAddr):\($0.destPort)",
+                proto: $0.proto,
+            )
         }
         
         if profile.enableVPNPortal {
@@ -271,17 +269,13 @@ nonisolated struct NetworkConfig: Codable {
             self.overrideDNS = profile.overrideDNS.compactMap { $0.text.isEmpty ? nil : $0.text }
         }
         
-        if !profile.exitNodes.isEmpty {
-            self.exitNodes = profile.exitNodes.compactMap { $0.text.isEmpty ? nil : $0.text }
-        }
+        self.exitNodes = profile.exitNodes.compactMap { $0.text.isEmpty ? nil : $0.text }
         
         if profile.enableSocks5 {
             self.socks5Proxy = "socks5://0.0.0.0:\(profile.socks5Port)"
         }
         
-        if !profile.mappedListeners.isEmpty {
-            self.mappedListeners = profile.mappedListeners.compactMap { $0.text.isEmpty ? nil : $0.text }
-        }
+        self.mappedListeners = profile.mappedListeners.compactMap { $0.text.isEmpty ? nil : $0.text }
         
         var tempFlags = self.flags ?? Flags()
         

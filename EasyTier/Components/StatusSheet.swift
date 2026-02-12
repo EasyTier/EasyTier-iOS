@@ -4,6 +4,7 @@ import EasyTierShared
 
 struct NetworkSettingsSheet: View {
     @Binding var settings: TunnelNetworkSettingsSnapshot?
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -75,7 +76,17 @@ struct NetworkSettingsSheet: View {
             }
             .textSelection(.enabled)
             .navigationTitle("network_settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
         }
     }
 
@@ -140,6 +151,7 @@ struct NetworkSettingsSheet: View {
 
 struct PeerConnDetailSheet: View {
     @Binding var status: NetworkStatus?
+    @Environment(\.dismiss) private var dismiss
     let peerRouteID: Int
 
     var pair: NetworkStatus.PeerRoutePair? {
@@ -187,7 +199,7 @@ struct PeerConnDetailSheet: View {
                             if !peerInfo.directlyConnectedConns.isEmpty {
                                 LabeledContent(
                                     "directly_connected_conns",
-                                    value: peerInfo.directlyConnectedConns.map(uuidString).joined(separator: "\n")
+                                    value: peerInfo.directlyConnectedConns.map(uuidString).sorted().joined(separator: "\n")
                                 )
                             }
                         }
@@ -241,7 +253,17 @@ struct PeerConnDetailSheet: View {
             }
             .textSelection(.enabled)
             .navigationTitle("peer_details")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
         }
     }
 
@@ -285,6 +307,7 @@ struct PeerConnDetailSheet: View {
 
 struct NodeInfoSheet: View {
     @Binding var status: NetworkStatus?
+    @Environment(\.dismiss) private var dismiss
 
     var nodeInfo: NetworkStatus.MyNodeInfo? {
         status?.myNodeInfo
@@ -312,13 +335,24 @@ struct NodeInfoSheet: View {
             }
             .textSelection(.enabled)
             .navigationTitle("node_information")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
         }
     }
 }
 
 struct IPInfoSheet: View {
     @Binding var status: NetworkStatus?
+    @Environment(\.dismiss) private var dismiss
 
     var nodeInfo: NetworkStatus.MyNodeInfo? {
         status?.myNodeInfo
@@ -347,15 +381,15 @@ struct IPInfoSheet: View {
                         }
                         if let v4s = ips.interfaceIPv4s, !v4s.isEmpty {
                             Section("interface_ipv4s") {
-                                ForEach(Array(Set(v4s)), id: \.hashValue) { ip in
-                                    Text(ip.description)
+                                ForEach(Array(Set(v4s)).map(\.description).sorted(), id: \.hashValue) { ip in
+                                    Text(ip)
                                 }
                             }
                         }
                         if let v6s = ips.interfaceIPv6s, !v6s.isEmpty {
                             Section("interface_ipv6s") {
-                                ForEach(Array(Set(v6s)), id: \.hashValue) { ip in
-                                    Text(ip.description)
+                                ForEach(Array(Set(v6s)).map(\.description).sorted(), id: \.hashValue) { ip in
+                                    Text(ip)
                                 }
                             }
                         }
@@ -376,13 +410,24 @@ struct IPInfoSheet: View {
             }
             .textSelection(.enabled)
             .navigationTitle("ip_information")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
         }
     }
 }
 
 struct StunInfoSheet: View {
     @Binding var status: NetworkStatus?
+    @Environment(\.dismiss) private var dismiss
 
     var stunInfo: NetworkStatus.STUNInfo? {
         status?.myNodeInfo?.stunInfo
@@ -426,8 +471,18 @@ struct StunInfoSheet: View {
                 }
             }
             .navigationTitle("stun_information")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
             .textSelection(.enabled)
+            .formStyle(.grouped)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
         }
     }
     

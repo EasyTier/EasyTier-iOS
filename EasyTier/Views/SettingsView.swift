@@ -10,7 +10,9 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
     @AppStorage("statusRefreshInterval") var statusRefreshInterval: Double = 1.0
     @AppStorage("logPreservedLines") var logPreservedLines: Int = 1000
     @AppStorage("useRealDeviceNameAsDefault") var useRealDeviceNameAsDefault: Bool = true
+#if os(iOS)
     @AppStorage("plainTextIPInput") var plainTextIPInput: Bool = false
+#endif
     @AppStorage("profilesUseICloud") var profilesUseICloud: Bool = false
     @AppStorage("includeAllNetworks", store: sharedDefaults) var includeAllNetworks: Bool = false
     @AppStorage("excludeLocalNetworks", store: sharedDefaults) var excludeLocalNetworks: Bool = false
@@ -19,8 +21,10 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
     @AppStorage("excludeDeviceCommunication", store: sharedDefaults) var excludeDeviceCommunication: Bool = true
     @AppStorage("enforceRoutes", store: sharedDefaults) var enforceRoutes: Bool = false
     @State private var selectedPane: SettingsPane?
+#if os(iOS)
     @State private var exportURL: URL?
     @State private var isExportPresented = false
+#endif
     @State private var settingsErrorMessage: TextItem?
     @State private var isExporting = false
     @State private var isAlwaysOnUpdating = false
@@ -45,29 +49,93 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
         NavigationStack {
             AdaptiveNavigation(primaryColumn, secondaryColumn, showNav: $selectedPane)
                 .navigationTitle("settings")
-                .navigationBarTitleDisplayMode(.inline)
+                .adaptiveNavigationBarTitleInline()
                 .scrollDismissesKeyboard(.immediately)
         }
     }
     
     var primaryColumn: some View {
-        List(selection: $selectedPane) {
+        Group {
+#if os(iOS)
+            List(selection: $selectedPane) {
+                settingsContent
+            }
+#else
+            Form {
+                settingsContent
+            }
+            .formStyle(.grouped)
+#endif
+        }
+        .alert(item: $settingsErrorMessage) { msg in
+            Alert(title: Text("common.error"), message: Text(msg.text))
+        }
+        .alert(isPresented: $showResetAlert) {
+            Alert(
+                title: Text("reset_to_default"),
+                message: Text("reset_to_default_confirm"),
+                primaryButton: .destructive(Text("reset")) {
+                    UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
+                    UserDefaults.standard.synchronize()
+                    if let sharedDefaults {
+                        sharedDefaults.removePersistentDomain(forName: APP_GROUP_ID)
+                        sharedDefaults.synchronize()
+                    }
+                },
+                secondaryButton: .cancel(),
+            )
+        }
+#if os(iOS)
+        .sheet(isPresented: $isExportPresented) {
+            if let url = exportURL {
+                ShareSheet(activityItems: [url])
+            }
+        }
+#endif
+    }
+    
+    var secondaryColumn: some View {
+        Group {
+            switch selectedPane {
+            case .license:
+                openSourceLicenseView
+            case nil:
+                ZStack {
+#if os(iOS)
+                    Color(.systemGroupedBackground)
+#endif
+                    Image(systemName: "network")
+                        .resizable()
+                        .frame(width: 128, height: 128)
+                        .foregroundStyle(Color.accentColor.opacity(0.2))
+                }
+                .ignoresSafeArea()
+            }
+        }
+    }
+    
+    var settingsContent: some View {
+        Group {
             Section("general") {
                 LabeledContent("status_refresh_rate") {
                     HStack {
                         TextField(
                             "1.0",
                             value: $statusRefreshInterval,
-                            formatter: NumberFormatter()
+                            formatter: NumberFormatter(),
+                            prompt: Text("1.0")
                         )
+                        .labelsHidden()
                         .contentShape(Rectangle())
                         .multilineTextAlignment(.trailing)
-                        .keyboardType(.decimalPad)
+                        .decimalKeyboardType()
                         Text("s")
                     }
                 }
                 Toggle("use_device_name", isOn: $useRealDeviceNameAsDefault)
+#if os(iOS)
                 Toggle("plain_text_ip_input", isOn: $plainTextIPInput)
+#endif
                 Toggle("save_to_icloud", isOn: $profilesUseICloud)
                 Toggle("always_on", isOn: $manager.isAlwaysOnEnabled)
                     .disabled(manager.isLoading || isAlwaysOnUpdating)
@@ -87,11 +155,13 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
                     TextField(
                         "1000",
                         value: $logPreservedLines,
-                        formatter: NumberFormatter()
+                        formatter: NumberFormatter(),
+                        prompt: Text("1000")
                     )
+                    .labelsHidden()
                     .contentShape(Rectangle())
                     .multilineTextAlignment(.trailing)
-                    .keyboardType(.numberPad)
+                    .numberKeyboardType()
                 }
                 Button(action: {
                     exportOSLog()
@@ -100,10 +170,16 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
                         Text("export_oslog")
                         Spacer()
                         if isExporting {
+#if os(iOS)
                             ProgressView()
+#endif
                         }
                     }
                 }
+#if os(macOS)
+                .buttonStyle(.borderless)
+                .tint(.accentColor)
+#endif
                 .disabled(isExporting || manager.status == .disconnected)
             } header: {
                 Text("logging")
@@ -128,6 +204,10 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
             Button("reset_to_default", role: .destructive) {
                 showResetAlert = true
             }
+#if os(macOS)
+            .buttonStyle(.borderless)
+            .tint(.red)
+#endif
 
             Section("about.title") {
                 LabeledContent("app") {
@@ -139,48 +219,13 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
                 Link("about.homepage", destination: URL(string: "https://github.com/EasyTier/EasyTier-iOS")!)
                 Link("about.privacy_policy", destination: URL(string: "https://easytier.cn/guide/privacy.html")!)
                 
+#if os(iOS)
                 NavigationLink("about.license", value: SettingsPane.license)
-            }
-        }
-        .alert(item: $settingsErrorMessage) { msg in
-            Alert(title: Text("common.error"), message: Text(msg.text))
-        }
-        .alert(isPresented: $showResetAlert) {
-            Alert(
-                title: Text("reset_to_default"),
-                message: Text("reset_to_default_confirm"),
-                primaryButton: .destructive(Text("reset")) {
-                    UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier!)
-                    UserDefaults.standard.synchronize()
-                    if let sharedDefaults {
-                        sharedDefaults.removePersistentDomain(forName: APP_GROUP_ID)
-                        sharedDefaults.synchronize()
-                    }
-                },
-                secondaryButton: .cancel(),
-            )
-        }
-        .sheet(isPresented: $isExportPresented) {
-            if let url = exportURL {
-                ShareSheet(activityItems: [url])
-            }
-        }
-    }
-    
-    var secondaryColumn: some View {
-        Group {
-            switch selectedPane {
-            case .license:
-                openSourceLicenseView
-            case nil:
-                ZStack {
-                    Color(.systemGroupedBackground)
-                    Image(systemName: "network")
-                        .resizable()
-                        .frame(width: 128, height: 128)
-                        .foregroundStyle(Color.accentColor.opacity(0.2))
+#else
+                NavigationLink("about.license") {
+                    openSourceLicenseView
                 }
-                .ignoresSafeArea()
+#endif
             }
         }
     }
@@ -293,8 +338,16 @@ struct SettingsView<Manager: NetworkExtensionManagerProtocol>: View {
             do {
                 let url = try await manager.exportExtensionLogs()
                 await MainActor.run {
+#if os(iOS)
                     exportURL = url
                     isExportPresented = true
+#elseif os(macOS)
+                    do {
+                        try saveExportedFileToDisk(url)
+                    } catch {
+                        settingsErrorMessage = .init(error.localizedDescription)
+                    }
+#endif
                 }
             } catch {
                 await MainActor.run {

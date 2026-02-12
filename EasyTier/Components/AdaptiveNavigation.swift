@@ -1,7 +1,11 @@
 import SwiftUI
 
 struct AdaptiveNavigation<PrimaryView, SecondaryView, Enum>: View where PrimaryView: View, SecondaryView: View, Enum: Identifiable & Hashable {
+#if os(macOS)
+    let sizeClass = UserInterfaceSizeClass.compact
+#else
     @Environment(\.horizontalSizeClass) var sizeClass
+#endif
     @ViewBuilder var primaryColumn: PrimaryView
     @ViewBuilder var secondaryColumn: SecondaryView
     @Binding var showNav: Enum?
@@ -17,7 +21,7 @@ struct AdaptiveNavigation<PrimaryView, SecondaryView, Enum>: View where PrimaryV
             if sizeClass == .regular {
                 HStack(spacing: 0) {
                     primaryColumn
-                        .frame(maxWidth: columnWidth)
+                        .frame(maxWidth: columnMaxWidth)
                     secondaryColumn
                 }
             } else {
@@ -33,7 +37,7 @@ extension View {
         item: Binding<Enum?>,
         @ViewBuilder destination: @escaping () -> Destination
     ) -> some View {
-        if #available(iOS 18.0, *) {
+        if #available(iOS 18.0, macOS 14.0, *) {
             return self.navigationDestination(item: item) { _ in
                 destination()
             }
@@ -41,7 +45,7 @@ extension View {
             return self.sheet(item: item) { _ in
                 NavigationStack {
                     destination()
-                        .navigationBarTitleDisplayMode(.inline)
+                        .adaptiveNavigationBarTitleInline()
                 }
             }
         }

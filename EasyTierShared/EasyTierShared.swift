@@ -1,4 +1,4 @@
-import NetworkExtension
+@preconcurrency import NetworkExtension
 import os
 
 public let APP_BUNDLE_ID: String = "site.yinmo.easytier"
@@ -142,16 +142,16 @@ public enum ProviderCommand: String, Codable, CaseIterable {
     case lastNetworkSettings = "last_network_settings"
 }
 
-public func connectWithManager(_ manager: NETunnelProviderManager, logger: Logger? = nil) async throws {
+public func connectWithManager(_ manager: NETunnelProviderManager, logger: Logger? = nil, completionHandler: (@Sendable ((any Error)?) -> Void)? = nil) {
     manager.isEnabled = true
     if let defaults = UserDefaults(suiteName: APP_GROUP_ID) {
         manager.protocolConfiguration?.includeAllNetworks = defaults.bool(forKey: "includeAllNetworks")
         manager.protocolConfiguration?.excludeLocalNetworks = defaults.bool(forKey: "excludeLocalNetworks")
-        if #available(iOS 16.4, *) {
+        if #available(iOS 16.4, macOS 13.3, *) {
             manager.protocolConfiguration?.excludeCellularServices = defaults.bool(forKey: "excludeCellularServices")
             manager.protocolConfiguration?.excludeAPNs = defaults.bool(forKey: "excludeAPNs")
         }
-        if #available(iOS 17.4, *) {
+        if #available(iOS 17.4, macOS 14.4, *) {
             manager.protocolConfiguration?.excludeDeviceCommunication = defaults.bool(forKey: "excludeDeviceCommunication")
         }
         manager.protocolConfiguration?.enforceRoutes = defaults.bool(forKey: "enforceRoutes")
@@ -159,6 +159,16 @@ public func connectWithManager(_ manager: NETunnelProviderManager, logger: Logge
             logger.debug("connect with protocol configuration: \(manager.protocolConfiguration)")
         }
     }
-    try await manager.saveToPreferences()
-    try manager.connection.startVPNTunnel()
+    manager.saveToPreferences() { error in
+        if let error {
+            completionHandler?(error)
+        } else {
+            do {
+                try manager.connection.startVPNTunnel()
+            } catch {
+                completionHandler?(error)
+            }
+        }
+        completionHandler?(nil)
+    }
 }

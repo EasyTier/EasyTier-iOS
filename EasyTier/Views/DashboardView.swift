@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 import EasyTierShared
 
 private let dashboardLogger = Logger(subsystem: APP_BUNDLE_ID, category: "main.dashboard")
+private let autoSaveInterval: UInt64 = 1_200_000_000
 
 struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @Environment(\.scenePhase) var scenePhase
@@ -28,7 +29,9 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @State var editingProfileName: String?
 
     @State var showImportPicker = false
+#if os(iOS)
     @State var exportURL: IdentifiableURL?
+#endif
     @State var showEditSheet = false
     @State var editText = ""
 
@@ -38,6 +41,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @State var conflictDetails: String = ""
 
     @State var darwinObserver: DarwinNotificationObserver? = nil
+    @State private var autoSaveTask: Task<Void, Never>? = nil
     
     init(manager: Manager, selectedSession: SelectedProfileSession) {
         _manager = ObservedObject(wrappedValue: manager)
@@ -80,7 +84,9 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)
+#if os(iOS)
                 .background(Color(.systemGroupedBackground))
+#endif
             }
         }
     }
@@ -106,7 +112,17 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                 Section("network") {
                     let profiles = ProfileStore.loadIndexOrEmpty().map{ IdenticalTextItem($0) }
                     ForEach(profiles) { item in
-                        Button {
+                        HStack {
+                            Text(item.id)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if selectedSession.session?.name == item.id {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {  
                             if selectedSession.session?.name == item.id {
                                 Task { @MainActor in
                                     await closeSelectedSession()
@@ -116,15 +132,23 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                                     await loadProfile(item.id)
                                 }
                             }
-                        } label: {
-                            HStack {
-                                Text(item.id)
-                                    .foregroundColor(.primary)
-                                Spacer()
-                                if selectedSession.session?.name == item.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(.blue)
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                Task { @MainActor in
+                                    do {
+                                        if selectedSession.session?.name == item.id {
+                                            await closeSelectedSession(save: false)
+                                        }
+                                        try ProfileStore.deleteProfile(named: item.id)
+                                    } catch {
+                                        dashboardLogger.error("delete profile failed: \(error)")
+                                        errorMessage = .init(error.localizedDescription)
+                                    }
                                 }
+                            } label: {
+                                Label("delete", systemImage: "trash")
+                                    .tint(.red)
                             }
                         }
                         .swipeActions(edge: .leading) {
@@ -169,6 +193,10 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             Text("profile.create_network")
                         }
                     }
+#if os(macOS)
+                    .buttonStyle(.borderless)
+                    .tint(.accentColor)
+#endif
                     Button {
                         presentEditInText()
                     } label: {
@@ -181,6 +209,10 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             Text("profile.edit_in_text")
                         }
                     }
+#if os(macOS)
+                    .buttonStyle(.borderless)
+                    .tint(.accentColor)
+#endif
                     Button {
                         showImportPicker = true
                     } label: {
@@ -193,6 +225,10 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             Text("profile.import_config")
                         }
                     }
+#if os(macOS)
+                    .buttonStyle(.borderless)
+                    .tint(.accentColor)
+#endif
                     Button {
                         exportSelectedProfile()
                     } label: {
@@ -201,22 +237,29 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             Text("profile.export_config")
                         }
                     }
+#if os(macOS)
+                    .buttonStyle(.borderless)
+                    .tint(.accentColor)
+#endif
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("device.management")
-            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBarTitleInline()
             .toolbar {
-                Button {
-                    showManageSheet = false
-                } label: {
-                    Image(systemName: "checkmark")
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        showManageSheet = false
+                    } label: {
+                        Image(systemName: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
             }
             .alert("add_new_network", isPresented: $showNewNetworkAlert) {
                 TextField("config_name", text: $newNetworkInput)
-                    .textInputAutocapitalization(.never)
-                if #available(iOS 26.0, *) {
+                    .adaptiveNoTextInputAutocapitalization()
+                if #available(iOS 26.0, macOS 26.0, *) {
                     Button(role: .cancel) {}
                     Button("network.create", role: .confirm, action: createProfile)
                 } else {
@@ -226,7 +269,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
             }
             .alert("edit_config_name", isPresented: $showEditConfigNameAlert) {
                 TextField("config_name", text: $editConfigNameInput)
-                    .textInputAutocapitalization(.never)
+                    .adaptiveNoTextInputAutocapitalization()
                 Button("common.cancel") {}
                 Button("save") {
                     commitConfigNameEdit()
@@ -240,13 +283,13 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
             mainView
                 .navigationTitle(selectedSession.session?.name ?? String(localized: "select_network"))
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: ToolbarLeading) {
                     Button("select_network", systemImage: "chevron.up.chevron.down") {
                         showManageSheet = true
                     }
                     .disabled(isPending || isConnected)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: ToolbarTrailing) {
                     Button {
                         guard !isPending else { return }
                         isLocalPending = true
@@ -274,7 +317,9 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                         .padding(10)
                     }
                     .disabled((!hasSelectedProfile && !isConnected) || manager.isLoading || isPending)
+#if os(iOS)
                     .buttonStyle(.plain)
+#endif
                     .foregroundStyle(isConnected ? Color.red : Color.accentColor)
                     .animation(.interactiveSpring, value: [isConnected, isPending])
                 }
@@ -303,8 +348,11 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                 }
             }
         }
-        .onChange(of: scenePhase) { _ in
+        .onChange(of: scenePhase) { newPhase in
+            guard [.inactive, .background].contains(newPhase) else { return }
             Task { @MainActor in
+                autoSaveTask?.cancel()
+                autoSaveTask = nil
                 await saveProfile()
             }
         }
@@ -318,10 +366,13 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         }
         .onChange(of: currentProfile) { profile in
             selectedSession.session?.document.profile = profile
+            scheduleAutoSave()
         }
         .onDisappear {
             // Release observer to remove registration
             darwinObserver = nil
+            autoSaveTask?.cancel()
+            autoSaveTask = nil
             Task { @MainActor in
                 await saveProfile()
             }
@@ -342,14 +393,14 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                                 .padding(8)
                         }
                         .navigationTitle("edit_config")
-                        .navigationBarTitleDisplayMode(.inline)
+                        .adaptiveNavigationBarTitleInline()
                         .toolbar {
-                            ToolbarItem(placement: .topBarLeading) {
+                            ToolbarItem(placement: .cancellationAction) {
                                 Button("common.cancel") {
                                     showEditSheet = false
                                 }
                             }
-                            ToolbarItem(placement: .topBarTrailing) {
+                            ToolbarItem(placement: .confirmationAction) {
                                 Button("save") {
                                     saveEditInText()
                                 }
@@ -358,9 +409,11 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                         }
                     }
                 }
+#if os(iOS)
                 .sheet(item: $exportURL) { url in
                     ShareSheet(activityItems: [url.url])
                 }
+#endif
                 .fileImporter(
                     isPresented: $showImportPicker,
                     allowedContentTypes: [
@@ -480,7 +533,15 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
             return
         }
         dashboardLogger.info("exporting to: \(fileURL)")
+#if os(iOS)
         exportURL = .init(fileURL)
+#elseif os(macOS)
+        do {
+            try saveExportedFileToDisk(fileURL)
+        } catch {
+            errorMessage = .init(error.localizedDescription)
+        }
+#endif
     }
 
     private func presentEditInText() {
@@ -590,6 +651,8 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @MainActor
     private func closeSelectedSession(save: Bool = true) async {
         dashboardLogger.info("closing session with save: \(save)")
+        autoSaveTask?.cancel()
+        autoSaveTask = nil
         if save {
             await saveProfile()
         }
@@ -646,10 +709,22 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         let lines = infos.map { info in
             let label = info.local ? String(localized: "local") : String(localized: "icloud")
             let time = info.modificationDate.map { formatter.string(from: $0) } ?? "-"
-            let device = info.deviceName ?? UIDevice.current.name
+            let device = info.deviceName ?? "N/A"
             return "\(label): \(device) · \(time)"
         }
         return ([String(localized: "icloud_conflict_message")] + lines).joined(separator: "\n")
+    }
+
+    @MainActor
+    private func scheduleAutoSave() {
+        autoSaveTask?.cancel()
+        guard selectedSession.session != nil else { return }
+        autoSaveTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: autoSaveInterval)
+            guard !Task.isCancelled else { return }
+            dashboardLogger.info("auto saving...")
+            await saveProfile(saveOptions: true)
+        }
     }
 
 }
