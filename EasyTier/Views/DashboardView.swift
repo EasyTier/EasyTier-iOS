@@ -134,6 +134,13 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             }
                         }
                         .contextMenu {
+                            Button {
+                                editingProfileName = item.id
+                                editConfigNameInput = item.id
+                                showEditConfigNameAlert = true
+                            } label: {
+                                Label("rename", systemImage: "pencil")
+                            }
                             Button(role: .destructive) {
                                 Task { @MainActor in
                                     do {
