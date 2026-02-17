@@ -212,6 +212,10 @@ nonisolated struct NetworkConfig: Codable {
             return current != original ? current : nil
         }
         
+        func emptyAsNil<T>(_ list: [T]) -> [T]? {
+            return list.isEmpty ? nil : list
+        }
+        
         self.instanceId = profile.id.uuidString.lowercased()
         self.instanceName = profile.networkName
         if !profile.hostname.isEmpty {
@@ -230,29 +234,29 @@ nonisolated struct NetworkConfig: Codable {
         case .defaultServer:
             self.peer = [PeerConfig(uri: defaultServerURL)]
         case .custom:
-            self.peer = profile.peerURLs.compactMap { $0.text.isEmpty ? nil : PeerConfig(uri: $0.text) }
+            self.peer = emptyAsNil(profile.peerURLs.compactMap { $0.text.isEmpty ? nil : PeerConfig(uri: $0.text) })
         case .standalone:
-            self.peer = []
+            self.peer = nil
         }
         
-        self.listeners = profile.listenerURLs.compactMap { $0.text.isEmpty ? nil : $0.text }
+        self.listeners = emptyAsNil(profile.listenerURLs.compactMap { $0.text.isEmpty ? nil : $0.text })
 
-        self.proxyNetwork = profile.proxyCIDRs.compactMap { cidr in
+        self.proxyNetwork = emptyAsNil(profile.proxyCIDRs.compactMap { cidr in
             let cidrString = cidr.cidrString
             guard !cidrString.isEmpty else { return nil }
             return ProxyNetworkConfig(
                 cidr: cidrString,
                 mappedCIDR: cidr.enableMapping ? cidr.mappedCIDRString : nil,
             )
-        }
+        })
 
-        self.portForward = profile.portForwards.map {
+        self.portForward = emptyAsNil(profile.portForwards.map {
             PortForwardConfig(
                 bindAddr: "\($0.bindAddr):\($0.bindPort)",
                 dstAddr: "\($0.destAddr):\($0.destPort)",
                 proto: $0.proto,
             )
-        }
+        })
         
         if profile.enableVPNPortal {
             self.vpnPortalConfig = VPNPortalConfig(
@@ -262,20 +266,20 @@ nonisolated struct NetworkConfig: Codable {
         }
         
         if profile.enableManualRoutes {
-            self.routes = profile.routes.map { $0.cidrString }
+            self.routes = emptyAsNil(profile.routes.map { $0.cidrString })
         }
         
         if profile.enableOverrideDNS {
-            self.overrideDNS = profile.overrideDNS.compactMap { $0.text.isEmpty ? nil : $0.text }
+            self.overrideDNS = emptyAsNil(profile.overrideDNS.compactMap { $0.text.isEmpty ? nil : $0.text })
         }
         
-        self.exitNodes = profile.exitNodes.compactMap { $0.text.isEmpty ? nil : $0.text }
+        self.exitNodes = emptyAsNil(profile.exitNodes.compactMap { $0.text.isEmpty ? nil : $0.text })
         
         if profile.enableSocks5 {
             self.socks5Proxy = "socks5://0.0.0.0:\(profile.socks5Port)"
         }
         
-        self.mappedListeners = profile.mappedListeners.compactMap { $0.text.isEmpty ? nil : $0.text }
+        self.mappedListeners = emptyAsNil(profile.mappedListeners.compactMap { $0.text.isEmpty ? nil : $0.text })
         
         var tempFlags = self.flags ?? Flags()
         
