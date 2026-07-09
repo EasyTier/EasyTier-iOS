@@ -1,10 +1,5 @@
 # EasyTier iOS/macOS Client
 
-> [!IMPORTANT]
-> This project is **NOT ACTIVELY MAINTAINED** due to personal reasons. Looking for other maintainers!
->
-> 因个人原因，本项目**不再积极维护**。需要其他维护者！
-
 [简体中文](README_CN.md) | [English](README.md)
 
 iOS/macOS native client application for EasyTier, a decentralized virtual private network solution.
