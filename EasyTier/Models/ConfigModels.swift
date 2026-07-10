@@ -244,6 +244,8 @@ nonisolated struct NetworkConfig: Codable {
         
         if !profile.dhcp {
             self.ipv4 = profile.virtualIPv4.cidrString
+        } else {
+            self.ipv4 = nil
         }
         
         self.peer = emptyAsNil(profile.peerURLs.compactMap { $0.text.isEmpty ? nil : PeerConfig(uri: $0.text) })
@@ -256,6 +258,7 @@ nonisolated struct NetworkConfig: Codable {
             return ProxyNetworkConfig(
                 cidr: cidrString,
                 mappedCIDR: cidr.enableMapping ? cidr.mappedCIDRString : nil,
+                allow: cidr.allow,
             )
         })
 
@@ -274,20 +277,28 @@ nonisolated struct NetworkConfig: Codable {
                 clientCIDR: profile.vpnPortalClientCIDR.cidrString,
                 wireguardListen: "0.0.0.0:\(profile.vpnPortalListenPort)",
             )
+        } else {
+            self.vpnPortalConfig = nil
         }
         
         if profile.enableManualRoutes {
             self.routes = emptyAsNil(profile.routes.map { $0.cidrString })
+        } else {
+            self.routes = nil
         }
         
         if profile.enableOverrideDNS {
             self.overrideDNS = emptyAsNil(profile.overrideDNS.compactMap { $0.text.isEmpty ? nil : $0.text })
+        } else {
+            self.overrideDNS = nil
         }
         
         self.exitNodes = emptyAsNil(profile.exitNodes.compactMap { $0.text.isEmpty ? nil : $0.text })
         
         if profile.enableSocks5 {
             self.socks5Proxy = "socks5://0.0.0.0:\(profile.socks5Port)"
+        } else {
+            self.socks5Proxy = nil
         }
         
         self.mappedListeners = emptyAsNil(profile.mappedListeners.compactMap { $0.text.isEmpty ? nil : $0.text })
@@ -323,19 +334,27 @@ nonisolated struct NetworkConfig: Codable {
         
         if profile.disableIPv6 != def.disableIPv6 {
             tempFlags.enableIPv6 = !profile.disableIPv6
+        } else {
+            tempFlags.enableIPv6 = nil
         }
         
         if profile.disableEncryption != def.disableEncryption {
             tempFlags.enableEncryption = !profile.disableEncryption
+        } else {
+            tempFlags.enableEncryption = nil
         }
         
         if profile.enableRelayNetworkWhitelist {
             tempFlags.relayNetworkWhitelist = profile.relayNetworkWhitelist
                 .compactMap { $0.text.isEmpty ? nil : $0.text }.joined(separator: " ")
+        } else {
+            tempFlags.relayNetworkWhitelist = nil
         }
         
         if profile.enableDataCompression {
             tempFlags.dataCompressAlgo = 2
+        } else {
+            tempFlags.dataCompressAlgo = nil
         }
         
         if tempFlags == Flags() {

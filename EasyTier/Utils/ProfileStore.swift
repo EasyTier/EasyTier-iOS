@@ -30,6 +30,29 @@ private func coordinatedWrite(_ data: Data, to url: URL) throws {
     }
 }
 
+private func coordinatedCreate(_ data: Data, at url: URL) throws {
+    var coordinationError: NSError?
+    var writeError: Error?
+
+    NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: [], error: &coordinationError) { coordinatedURL in
+        do {
+            guard !FileManager.default.fileExists(atPath: coordinatedURL.path) else {
+                throw ProfileStoreError.profileAlreadyExists(coordinatedURL)
+            }
+            try data.write(to: coordinatedURL, options: [.atomic, .withoutOverwriting])
+        } catch {
+            writeError = error
+        }
+    }
+
+    if let writeError {
+        throw writeError
+    }
+    if let coordinationError {
+        throw coordinationError
+    }
+}
+
 private func coordinatedRead(from url: URL) throws -> Data {
     var coordinationError: NSError?
     var readError: Error?
@@ -73,19 +96,17 @@ private func coordinatedDelete(at url: URL) throws {
 private func coordinatedMove(from sourceURL: URL, to targetURL: URL) throws {
     var coordinationError: NSError?
     var moveError: Error?
-    let destinationExists = FileManager.default.fileExists(atPath: targetURL.path)
-    let destinationOptions: NSFileCoordinator.WritingOptions = destinationExists ? .forReplacing : []
 
     NSFileCoordinator(filePresenter: nil).coordinate(
         writingItemAt: sourceURL,
         options: .forMoving,
         writingItemAt: targetURL,
-        options: destinationOptions,
+        options: [],
         error: &coordinationError
     ) { coordinatedSourceURL, coordinatedTargetURL in
         do {
-            if FileManager.default.fileExists(atPath: coordinatedTargetURL.path) {
-                try FileManager.default.removeItem(at: coordinatedTargetURL)
+            guard !FileManager.default.fileExists(atPath: coordinatedTargetURL.path) else {
+                throw ProfileStoreError.profileAlreadyExists(coordinatedTargetURL)
             }
             try FileManager.default.moveItem(at: coordinatedSourceURL, to: coordinatedTargetURL)
         } catch {
@@ -134,6 +155,8 @@ extension Notification.Name {
 enum ProfileStoreError: LocalizedError {
     case conflict(URL)
     case conflictResolutionFailed
+    case encodingProducedNoString
+    case profileAlreadyExists(URL)
 
     var errorDescription: String? {
         switch self {
@@ -141,6 +164,10 @@ enum ProfileStoreError: LocalizedError {
             return "iCloud conflict detected: \(url.lastPathComponent)"
         case .conflictResolutionFailed:
             return "Failed to resolve iCloud conflict."
+        case .encodingProducedNoString:
+            return "Failed to encode the profile as TOML."
+        case .profileAlreadyExists(let url):
+            return "A profile named \(url.deletingPathExtension().lastPathComponent) already exists."
         }
     }
 }
@@ -198,8 +225,10 @@ struct ProfileDocument: FileDocument {
 
     private static func encode(_ profile: NetworkProfile) throws -> Data {
         let config = profile.toConfig()
-        let encoded = try TOMLEncoder().encode(config).string ?? ""
-        return encoded.data(using: .utf8) ?? Data()
+        guard let encoded = try TOMLEncoder().encode(config).string else {
+            throw ProfileStoreError.encodingProducedNoString
+        }
+        return Data(encoded.utf8)
     }
 }
 
@@ -410,12 +439,22 @@ enum ProfileStore {
         return profiles.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
+    /// A throwing lookup for mutation paths that must distinguish an empty
+    /// profile directory from a directory that could not be read.
+    static func profileExists(named configName: String) throws -> Bool {
+        try loadIndex().contains {
+            $0.caseInsensitiveCompare(configName) == .orderedSame
+        }
+    }
+
     static func save(_ profile: NetworkProfile, named configName: String) throws {
         let fileURL = try fileURL(forConfigName: configName)
         let config = profile.toConfig()
-        let encoded = try TOMLEncoder().encode(config).string ?? ""
-        let data = encoded.data(using: .utf8) ?? Data()
-        try coordinatedWrite(data, to: fileURL)
+        guard let encoded = try TOMLEncoder().encode(config).string else {
+            throw ProfileStoreError.encodingProducedNoString
+        }
+        let data = Data(encoded.utf8)
+        try coordinatedCreate(data, at: fileURL)
     }
 
     static func renameProfileFile(from configName: String, to newConfigName: String) throws {
