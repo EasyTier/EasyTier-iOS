@@ -9,6 +9,47 @@ import EasyTierShared
 private let dashboardLogger = Logger(subsystem: APP_BUNDLE_ID, category: "main.dashboard")
 private let autoSaveInterval: UInt64 = 1_200_000_000
 
+private struct ProfileTextDraft: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+private struct ProfileTextEditor: View {
+    @State private var text: String
+
+    let onCancel: () -> Void
+    let onSave: (String) -> Void
+
+    init(text: String, onCancel: @escaping () -> Void, onSave: @escaping (String) -> Void) {
+        _text = State(initialValue: text)
+        self.onCancel = onCancel
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                TextEditor(text: $text)
+                    .font(.system(.body, design: .monospaced))
+                    .padding(8)
+            }
+            .navigationTitle("edit_config")
+            .adaptiveNavigationBarTitleInline()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("save") {
+                        onSave(text)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+    }
+}
+
 struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @Environment(\.scenePhase) var scenePhase
     @ObservedObject var manager: Manager
@@ -31,8 +72,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
 #if os(iOS)
     @State var exportURL: IdentifiableURL?
 #endif
-    @State var showEditSheet = false
-    @State var editText = ""
+    @State private var editDraft: ProfileTextDraft?
 
     @State var errorMessage: TextItem?
     @State var showConflictAlert = false
@@ -391,28 +431,11 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         }
         .sheet(isPresented: $showManageSheet) {
             manageSheet
-                .sheet(isPresented: $showEditSheet) {
-                    NavigationStack {
-                        VStack(spacing: 0) {
-                            TextEditor(text: $editText)
-                                .font(.system(.body, design: .monospaced))
-                                .padding(8)
-                        }
-                        .navigationTitle("edit_config")
-                        .adaptiveNavigationBarTitleInline()
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("common.cancel") {
-                                    showEditSheet = false
-                                }
-                            }
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("save") {
-                                    saveEditInText()
-                                }
-                                .buttonStyle(.borderedProminent)
-                            }
-                        }
+                .sheet(item: $editDraft) { draft in
+                    ProfileTextEditor(text: draft.text) {
+                        editDraft = nil
+                    } onSave: { text in
+                        saveEditInText(text)
                     }
                 }
 #if os(iOS)
@@ -576,8 +599,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                 guard let encoded = try TOMLEncoder().encode(config).string else {
                     throw ProfileStoreError.encodingProducedNoString
                 }
-                editText = encoded
-                showEditSheet = true
+                editDraft = ProfileTextDraft(text: encoded)
             } catch {
                 dashboardLogger.error("edit load failed: \(error)")
                 errorMessage = .init(error.localizedDescription)
@@ -585,15 +607,15 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         }
     }
 
-    private func saveEditInText() {
+    private func saveEditInText(_ text: String) {
         Task { @MainActor in
             do {
-                let config = try TOMLDecoder().decode(NetworkConfig.self, from: editText)
+                let config = try TOMLDecoder().decode(NetworkConfig.self, from: text)
                 let profile = NetworkProfile(from: config)
                 currentProfile = profile
                 selectedSession.session?.document.profile = profile
                 guard await saveProfile() else { return }
-                showEditSheet = false
+                editDraft = nil
             } catch {
                 dashboardLogger.error("edit save failed: \(error)")
                 errorMessage = .init(error.localizedDescription)
