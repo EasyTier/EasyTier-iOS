@@ -1324,6 +1324,7 @@ dependencies = [
  "tracing",
  "tracing-oslog",
  "tracing-subscriber",
+ "x25519-dalek",
 ]
 
 [[package]]

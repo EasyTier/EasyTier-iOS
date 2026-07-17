@@ -19,6 +19,14 @@ fn prepare_network_config(cfg_str: &str) -> Result<TomlConfigLoader, String> {
     let cfg = TomlConfigLoader::new_from_str(cfg_str).map_err(|e| e.to_string())?;
     if let Some(secure_mode) = cfg.get_secure_mode() {
         let secure_mode = process_secure_mode_cfg(secure_mode).map_err(|e| e.to_string())?;
+        if secure_mode.enabled {
+            let private_key = secure_mode.private_key().map_err(|e| e.to_string())?;
+            let public_key = secure_mode.public_key().map_err(|e| e.to_string())?;
+            let derived_public_key = x25519_dalek::PublicKey::from(&private_key);
+            if public_key.as_bytes() != derived_public_key.as_bytes() {
+                return Err("local public key does not match local private key".to_string());
+            }
+        }
         cfg.set_secure_mode(Some(secure_mode));
     }
     Ok(cfg)
@@ -435,6 +443,24 @@ mod tests {
                 [secure_mode]
                 enabled = true
                 local_private_key = "invalid"
+            "#,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_prepare_network_config_rejects_mismatched_secure_mode_keypair() {
+        let result = prepare_network_config(
+            r#"
+                [network_identity]
+                network_name = "secure-test"
+                network_secret = ""
+
+                [secure_mode]
+                enabled = true
+                local_private_key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+                local_public_key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
             "#,
         );
 

@@ -415,6 +415,14 @@ nonisolated struct NetworkProfile: Identifiable, Equatable {
         try prepareSecureModeKeys()
     }
 
+    mutating func updateSecureModePrivateKey(_ value: String) {
+        secureModeLocalPrivateKey = value
+        secureModeLocalPublicKey = ""
+
+        guard enableSecureMode, !value.isEmpty else { return }
+        try? prepareSecureModeKeys()
+    }
+
     mutating func prepareSecureModeKeys() throws {
         guard enableSecureMode else { return }
 
@@ -426,7 +434,8 @@ nonisolated struct NetworkProfile: Identifiable, Equatable {
             privateKey = Curve25519.KeyAgreement.PrivateKey()
             secureModeLocalPrivateKey = privateKey.rawRepresentation.base64EncodedString()
         } else {
-            guard let rawPrivateKey = Data(base64Encoded: secureModeLocalPrivateKey) else {
+            let encodedPrivateKey = secureModeLocalPrivateKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let rawPrivateKey = Data(base64Encoded: encodedPrivateKey) else {
                 throw SecureModeKeyError.invalidPrivateKey
             }
             do {
@@ -434,6 +443,7 @@ nonisolated struct NetworkProfile: Identifiable, Equatable {
             } catch {
                 throw SecureModeKeyError.invalidPrivateKey
             }
+            secureModeLocalPrivateKey = privateKey.rawRepresentation.base64EncodedString()
         }
 
         let derivedPublicKey = privateKey.publicKey.rawRepresentation
@@ -442,7 +452,8 @@ nonisolated struct NetworkProfile: Identifiable, Equatable {
             return
         }
 
-        guard let rawPublicKey = Data(base64Encoded: secureModeLocalPublicKey) else {
+        let encodedPublicKey = secureModeLocalPublicKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let rawPublicKey = Data(base64Encoded: encodedPublicKey) else {
             throw SecureModeKeyError.invalidPublicKey
         }
         do {
@@ -453,6 +464,7 @@ nonisolated struct NetworkProfile: Identifiable, Equatable {
         guard rawPublicKey == derivedPublicKey else {
             throw SecureModeKeyError.publicKeyMismatch
         }
+        secureModeLocalPublicKey = derivedPublicKey.base64EncodedString()
     }
     
     @MainActor static let boolFlags: [BoolFlag] = [

@@ -231,28 +231,31 @@ struct NetworkEditView: View {
                 )
                 if profile.enableSecureMode {
                     LabeledContent("local_private_key") {
-                        SecureField(
+                        TextField(
                             "common_text.empty",
-                            text: $profile.secureModeLocalPrivateKey,
-                            prompt: Text("common_text.empty")
+                            text: Binding(
+                                get: { profile.secureModeLocalPrivateKey },
+                                set: { profile.updateSecureModePrivateKey($0) }
+                            ),
+                            prompt: Text("common_text.empty"),
+                            axis: .vertical
                         )
                         .labelsHidden()
-                        .multilineTextAlignment(.trailing)
                         .font(.body.monospaced())
                         .adaptiveNoTextInputAutocapitalization()
                         .autocorrectionDisabled()
                     }
                     LabeledContent("local_public_key") {
-                        TextField(
-                            "common_text.empty",
-                            text: $profile.secureModeLocalPublicKey,
-                            prompt: Text("common_text.empty")
-                        )
-                        .labelsHidden()
-                        .multilineTextAlignment(.trailing)
+                        Group {
+                            if profile.secureModeLocalPublicKey.isEmpty {
+                                Text("common_text.empty")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text(verbatim: profile.secureModeLocalPublicKey)
+                                    .textSelection(.enabled)
+                            }
+                        }
                         .font(.body.monospaced())
-                        .adaptiveNoTextInputAutocapitalization()
-                        .autocorrectionDisabled()
                     }
                 }
             } header: {

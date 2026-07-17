@@ -5172,13 +5172,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "If the private key is left empty, a key pair will be generated automatically and saved to this profile. If the public key is left empty, it will be derived from the private key and saved."
+            "value" : "If the private key is left empty, a key pair will be generated automatically and saved to this profile. The public key is derived from the private key automatically and is read-only; select it to copy."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "私钥留空时，将自动生成密钥对并保存到此配置；公钥留空时，将从私钥派生并保存。"
+            "value" : "私钥留空时，将自动生成密钥对并保存到此配置。公钥会自动从私钥派生且不可编辑，可选中复制。"
           }
         }
       }
