@@ -20,6 +20,10 @@ iOS/macOS 版 EasyTier 原生客户端，适用于去中心化虚拟专用网络
   <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="在 App Store 下载" height="40">
 </a>
 
+### IPA 巨魔/自签
+
+每次提交推送到 `main` 分支时，仓库都会自动更新完全未签名的 Nightly Release IPA，供用户自行签名或是使用巨魔商店安装。
+
 ### 许可证
 
 GNU General Public License v3.0 - 详见 [LICENSE](LICENSE)

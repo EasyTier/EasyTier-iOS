@@ -1,0 +1,213 @@
+name: Nightly
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+env:
+  SCHEME: EasyTier
+  BUILD_CONFIGURATION: Release
+  IPA_NAME: EasyTier-nightly-unsigned.ipa
+
+jobs:
+  build-and-release:
+    name: Build and publish unsigned IPA
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Select Xcode and install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "ARCHIVE_PATH=${RUNNER_TEMP}/EasyTier.xcarchive" >> "${GITHUB_ENV}"
+          echo "PACKAGE_PATH=${RUNNER_TEMP}/package" >> "${GITHUB_ENV}"
+          echo "EXPORT_PATH=${RUNNER_TEMP}/export" >> "${GITHUB_ENV}"
+
+          sudo xcode-select --switch /Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild -version
+
+          rustup target add aarch64-apple-ios
+          if ! command -v protoc >/dev/null 2>&1; then
+            brew install protobuf
+          fi
+
+          rustc --version
+          protoc --version
+
+      - name: Archive unsigned Release build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          xcodebuild archive \
+            -project EasyTier.xcodeproj \
+            -scheme "${SCHEME}" \
+            -configuration "${BUILD_CONFIGURATION}" \
+            -destination "generic/platform=iOS" \
+            -archivePath "${ARCHIVE_PATH}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
+
+      - name: Verify archive is completely unsigned
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_PATH="${ARCHIVE_PATH}/Products/Applications/EasyTier.app"
+          TUNNEL_PATH="${APP_PATH}/PlugIns/EasyTierNetworkExtension.appex"
+          WIDGET_PATH="${APP_PATH}/PlugIns/EasyTierWidgetExtension.appex"
+
+          for bundle_path in "${APP_PATH}" "${TUNNEL_PATH}" "${WIDGET_PATH}"; do
+            if [[ ! -d "${bundle_path}" ]]; then
+              echo "::error::Expected bundle is missing: ${bundle_path}"
+              exit 1
+            fi
+            if codesign --display "${bundle_path}" >/dev/null 2>&1; then
+              echo "::error::Bundle unexpectedly contains a code signature: ${bundle_path}"
+              exit 1
+            fi
+          done
+
+          SIGNING_FILE="$(
+            find "${APP_PATH}" \
+              \( -name _CodeSignature -o -name embedded.mobileprovision \) \
+              -print \
+              -quit
+          )"
+          if [[ -n "${SIGNING_FILE}" ]]; then
+            echo "::error::Signing material unexpectedly exists: ${SIGNING_FILE}"
+            exit 1
+          fi
+
+          echo "Verified that the app and both extensions are unsigned."
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_PATH="${ARCHIVE_PATH}/Products/Applications/EasyTier.app"
+          mkdir -p "${PACKAGE_PATH}/Payload" "${EXPORT_PATH}"
+          cp -R "${APP_PATH}" "${PACKAGE_PATH}/Payload/EasyTier.app"
+
+          (
+            cd "${PACKAGE_PATH}"
+            /usr/bin/zip -qry "${EXPORT_PATH}/${IPA_NAME}" Payload
+          )
+          (
+            cd "${EXPORT_PATH}"
+            shasum -a 256 "${IPA_NAME}" > "${IPA_NAME}.sha256"
+          )
+
+      - name: Verify packaged IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERIFY_PATH="${RUNNER_TEMP}/verify-ipa"
+          unzip -q "${EXPORT_PATH}/${IPA_NAME}" -d "${VERIFY_PATH}"
+
+          SIGNING_FILE="$(
+            find "${VERIFY_PATH}/Payload/EasyTier.app" \
+              \( -name _CodeSignature -o -name embedded.mobileprovision \) \
+              -print \
+              -quit
+          )"
+          if [[ -n "${SIGNING_FILE}" ]]; then
+            echo "::error::Packaged IPA contains signing material: ${SIGNING_FILE}"
+            exit 1
+          fi
+
+          APP_COUNT="$(
+            find "${VERIFY_PATH}/Payload" -maxdepth 1 -type d -name '*.app' \
+              | wc -l \
+              | tr -d ' '
+          )"
+          EXTENSION_COUNT="$(
+            find "${VERIFY_PATH}/Payload/EasyTier.app/PlugIns" \
+              -maxdepth 1 \
+              -type d \
+              -name '*.appex' \
+              | wc -l \
+              | tr -d ' '
+          )"
+          if [[ "${APP_COUNT}" != "1" || "${EXTENSION_COUNT}" != "2" ]]; then
+            echo "::error::Expected one app and two extensions; found ${APP_COUNT} app(s) and ${EXTENSION_COUNT} extension(s)."
+            exit 1
+          fi
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: EasyTier-nightly-unsigned-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/export/EasyTier-nightly-unsigned.ipa
+            ${{ runner.temp }}/export/EasyTier-nightly-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Update rolling nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUILD_TIME="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          RELEASE_NOTES="${RUNNER_TEMP}/nightly-release-notes.md"
+
+          {
+            echo "Automated unsigned Release build from [\`${SHORT_SHA}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})."
+            echo
+            echo "- Build configuration: \`${BUILD_CONFIGURATION}\`"
+            echo "- Code signing: disabled"
+            echo "- Built: ${BUILD_TIME}"
+            echo "- Workflow run: [#${GITHUB_RUN_NUMBER}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            echo
+            echo "> This IPA is completely unsigned and cannot be installed until the app and both extensions are signed with valid provisioning profiles and matching entitlements."
+          } > "${RELEASE_NOTES}"
+
+          git tag --force nightly "${GITHUB_SHA}"
+          git push --force origin refs/tags/nightly
+
+          if gh release view nightly >/dev/null 2>&1; then
+            gh release edit nightly \
+              --target "${GITHUB_SHA}" \
+              --title "EasyTier Nightly Unsigned (${SHORT_SHA})" \
+              --notes-file "${RELEASE_NOTES}" \
+              --prerelease \
+              --latest=false
+            gh release upload nightly \
+              "${EXPORT_PATH}/${IPA_NAME}" \
+              "${EXPORT_PATH}/${IPA_NAME}.sha256" \
+              --clobber
+          else
+            gh release create nightly \
+              "${EXPORT_PATH}/${IPA_NAME}" \
+              "${EXPORT_PATH}/${IPA_NAME}.sha256" \
+              --verify-tag \
+              --target "${GITHUB_SHA}" \
+              --title "EasyTier Nightly Unsigned (${SHORT_SHA})" \
+              --notes-file "${RELEASE_NOTES}" \
+              --prerelease \
+              --latest=false
+          fi

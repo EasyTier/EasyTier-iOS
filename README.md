@@ -20,6 +20,10 @@ Available on the App Store (except for China mainland region):
   <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="40">
 </a>
 
+### Nightly unsigned build
+
+The repository updates a completely unsigned nightly Release IPA on every push to `main` for users to sign themselves or use with TrollStore.
+
 ### License
 
 GNU General Public License v3.0 - See [LICENSE](LICENSE) file
