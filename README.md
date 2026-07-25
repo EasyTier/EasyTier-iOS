@@ -20,9 +20,9 @@ Available on the App Store (except for China mainland region):
   <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="40">
 </a>
 
-### Nightly unsigned build
+### Nightly TrollStore build
 
-The repository updates a completely unsigned nightly Release IPA on every push to `main` for users to sign themselves or use with TrollStore.
+On every push to `main`, the repository updates a credentials-free nightly Release IPA for TrollStore. The app and its extensions are ad-hoc signed with their required Network Extension and App Group entitlements.
 
 ### License
 
