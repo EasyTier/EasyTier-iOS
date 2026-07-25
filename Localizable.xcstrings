@@ -4,6 +4,9 @@
     "" : {
       "shouldTranslate" : false
     },
+    "\n" : {
+      "shouldTranslate" : false
+    },
     ":" : {
       "shouldTranslate" : false
     },

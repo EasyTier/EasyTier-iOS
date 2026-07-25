@@ -37,16 +37,22 @@ extension View {
         item: Binding<Enum?>,
         @ViewBuilder destination: @escaping () -> Destination
     ) -> some View {
-        if #available(iOS 18.0, macOS 14.0, *) {
+        if #available(iOS 17.0, macOS 14.0, *) {
             return self.navigationDestination(item: item) { _ in
                 destination()
             }
         } else {
-            return self.sheet(item: item) { _ in
-                NavigationStack {
-                    destination()
-                        .adaptiveNavigationBarTitleInline()
-                }
+            return self.navigationDestination(
+                isPresented: Binding(
+                    get: { item.wrappedValue != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            item.wrappedValue = nil
+                        }
+                    }
+                )
+            ) {
+                destination()
             }
         }
     }

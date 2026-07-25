@@ -213,7 +213,8 @@ struct NetworkEditView: View {
                 Text("general")
             } footer: {
                 Text("mtu_help")
-                Text("instance_recv_bps_limit_help")
+                    + Text("\n")
+                    + Text("instance_recv_bps_limit_help")
             }
 
             Section {
