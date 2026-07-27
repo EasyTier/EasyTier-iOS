@@ -26,27 +26,30 @@ struct NetworkEditView: View {
     }
     
     var primaryColumn: some View {
+        Group {
 #if os(iOS)
-        List(selection: $selectedPane) {
-            basicSettings
-            NavigationLink("advanced_settings", value: EditPane.advanced)
-            NavigationLink("dns_settings", value: EditPane.dns)
-            NavigationLink("route_settings", value: EditPane.route)
-            NavigationLink("port_forwards", value: EditPane.portForwards)
-            NavigationLink("acl.title", value: EditPane.acl)
-        }
-        .scrollDismissesKeyboard(.immediately)
+            List(selection: $selectedPane) {
+                basicSettings
+                NavigationLink("advanced_settings", value: EditPane.advanced)
+                NavigationLink("dns_settings", value: EditPane.dns)
+                NavigationLink("route_settings", value: EditPane.route)
+                NavigationLink("port_forwards", value: EditPane.portForwards)
+                NavigationLink("acl.title", value: EditPane.acl)
+            }
+            .scrollDismissesKeyboard(.immediately)
 #else
-        Form {
-            basicSettings
-            NavigationLink("advanced_settings") { advancedSettings }
-            NavigationLink("dns_settings") { dnsSettings }
-            NavigationLink("route_settings") { routeSettings }
-            NavigationLink("port_forwards") { portForwardsSettings }
-            NavigationLink("acl.title") { ACLSettingsView(acl: $profile.acl) }
-        }
-        .formStyle(.grouped)
+            Form {
+                basicSettings
+                NavigationLink("advanced_settings") { advancedSettings }
+                NavigationLink("dns_settings") { dnsSettings }
+                NavigationLink("route_settings") { routeSettings }
+                NavigationLink("port_forwards") { portForwardsSettings }
+                NavigationLink("acl.title") { ACLSettingsView(acl: $profile.acl) }
+            }
+            .formStyle(.grouped)
 #endif
+        }
+        .listEditingToolbar(isVisible: !profile.peerConfigs.isEmpty)
     }
     
     var secondaryColumn: some View {
@@ -374,6 +377,11 @@ struct NetworkEditView: View {
         .navigationTitle("advanced_settings")
         .scrollDismissesKeyboard(.immediately)
         .formStyle(.grouped)
+        .listEditingToolbar(
+            isVisible: !profile.listenerURLs.isEmpty
+                || (profile.enableRelayNetworkWhitelist && !profile.relayNetworkWhitelist.isEmpty)
+                || !profile.mappedListeners.isEmpty
+        )
     }
     
     var dnsSettings: some View {
@@ -424,6 +432,9 @@ struct NetworkEditView: View {
         .navigationTitle("dns_settings")
         .scrollDismissesKeyboard(.immediately)
         .formStyle(.grouped)
+        .listEditingToolbar(
+            isVisible: profile.enableOverrideDNS && !profile.overrideDNS.isEmpty
+        )
     }
     
     var routeSettings: some View {
@@ -469,6 +480,11 @@ struct NetworkEditView: View {
             proxyCIDREditor
         }
         .formStyle(.grouped)
+        .listEditingToolbar(
+            isVisible: !profile.proxyCIDRs.isEmpty
+                || !profile.exitNodes.isEmpty
+                || (profile.enableManualRoutes && !profile.routes.isEmpty)
+        )
     }
 
     var portForwardsSettings: some View {
@@ -535,6 +551,7 @@ struct NetworkEditView: View {
         .navigationTitle("port_forwards")
         .scrollDismissesKeyboard(.immediately)
         .formStyle(.grouped)
+        .listEditingToolbar(isVisible: !profile.portForwards.isEmpty)
     }
     
     var proxyCIDRsSettings: some View {

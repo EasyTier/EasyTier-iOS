@@ -136,3 +136,22 @@ struct ListEditor<Element, RowContent>: View where Element: Identifiable, RowCon
         }
     }
 }
+
+extension View {
+    func listEditingToolbar(
+        isVisible: Bool,
+        placement: ToolbarItemPlacement = .primaryAction
+    ) -> some View {
+#if os(iOS)
+        self.toolbar {
+            ToolbarItem(placement: placement) {
+                if isVisible {
+                    EditButton()
+                }
+            }
+        }
+#else
+        self
+#endif
+    }
+}

@@ -88,13 +88,9 @@ struct ACLSettingsView: View {
         } message: {
             Text("acl.disable_confirmation_message")
         }
-        .toolbar {
-#if os(iOS)
-            if acl != nil, !(acl?.aclV1.chains.isEmpty ?? true) {
-                EditButton()
-            }
-#endif
-        }
+        .listEditingToolbar(
+            isVisible: acl != nil && !(acl?.aclV1.chains.isEmpty ?? true)
+        )
     }
 
     @ViewBuilder
@@ -243,13 +239,7 @@ private struct ACLChainEditorView: View {
         .navigationTitle(chain.name.isEmpty ? "ACL Chain" : chain.name)
         .scrollDismissesKeyboard(.immediately)
         .formStyle(.grouped)
-        .toolbar {
-#if os(iOS)
-            if !chain.rules.isEmpty {
-                EditButton()
-            }
-#endif
-        }
+        .listEditingToolbar(isVisible: !chain.rules.isEmpty)
     }
 
     private func addRule() {
@@ -591,6 +581,7 @@ private struct ACLGroupEditorView: View {
         .navigationTitle("acl.groups")
         .scrollDismissesKeyboard(.immediately)
         .formStyle(.grouped)
+        .listEditingToolbar(isVisible: !acl.aclV1.group.declares.isEmpty)
         .sheet(item: $editingGroup) { context in
             NavigationStack {
                 ACLGroupIdentityEditorView(

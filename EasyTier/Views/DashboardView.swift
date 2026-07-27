@@ -304,6 +304,10 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                     .buttonStyle(.borderedProminent)
                 }
             }
+            .listEditingToolbar(
+                isVisible: !ProfileStore.loadIndexOrEmpty().isEmpty,
+                placement: .cancellationAction
+            )
             .alert("add_new_network", isPresented: $showNewNetworkAlert) {
                 TextField("config_name", text: $newNetworkInput)
                     .adaptiveNoTextInputAutocapitalization()
