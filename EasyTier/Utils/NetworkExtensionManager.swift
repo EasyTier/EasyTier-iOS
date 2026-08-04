@@ -262,9 +262,18 @@ class NetworkExtensionManager: NetworkExtensionManagerProtocol {
             Self.logger.error("disconnect() failed: manager is nil")
             return
         }
-        manager.connection.stopVPNTunnel()
+        let connection = manager.connection
+        guard [.connecting, .connected, .reasserting, .disconnecting].contains(connection.status) else {
+            return
+        }
+
+        connection.stopVPNTunnel()
         // Immediately sync widget state after initiating disconnection
         syncWidgetState()
+
+        while [.connecting, .connected, .reasserting, .disconnecting].contains(connection.status) {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
     }
     
     func updateName(name: String, server: String) async {

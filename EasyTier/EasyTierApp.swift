@@ -6,9 +6,28 @@ import AppKit
 
 @MainActor
 private final class EasyTierAppDelegate: NSObject, NSApplicationDelegate {
+    var terminationHandler: (() async -> Void)?
+
+    private var terminationTask: Task<Void, Never>?
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         sender.setActivationPolicy(.accessory)
         return false
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let terminationHandler else {
+            return .terminateNow
+        }
+        guard terminationTask == nil else {
+            return .terminateLater
+        }
+
+        terminationTask = Task { @MainActor in
+            await terminationHandler()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }
 #endif
@@ -51,6 +70,9 @@ struct EasyTierApp: App {
 #if os(macOS)
         Window("EasyTier", id: "main") {
             ContentView(manager: manager)
+                .onAppear {
+                    configureTerminationHandler()
+                }
         }
 
         MenuBarExtra(
@@ -59,6 +81,9 @@ struct EasyTierApp: App {
             isInserted: $isMenuBarInserted
         ) {
             MenuBarView(manager: manager)
+                .onAppear {
+                    configureTerminationHandler()
+                }
         }
         .menuBarExtraStyle(.window)
 #else
@@ -67,4 +92,12 @@ struct EasyTierApp: App {
         }
 #endif
     }
+
+    #if os(macOS)
+        private func configureTerminationHandler() {
+            appDelegate.terminationHandler = {
+                await manager.disconnect()
+            }
+        }
+    #endif
 }
