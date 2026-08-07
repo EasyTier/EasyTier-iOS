@@ -1,0 +1,79 @@
+git fetch origin
+git checkout -b ci/build-unsigned-ipa
+mkdir -p .github/workflows
+cat > .github/workflows/build-unsigned-ipa.yml <<'EOF'
+# 以下为 workflow 内容（复制粘贴完整）
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-unsigned-ipa:
+    runs-on: macos-latest
+    env:
+      BUILD_DIR: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare toolchain (rust + protoc)
+        run: |
+          chmod +x ci_scripts/ci_post_clone.sh || true
+          ./ci_scripts/ci_post_clone.sh || true
+          source "$HOME/.cargo/env" || true
+
+      - name: Install CocoaPods (if needed) and resolve SPM
+        run: |
+          xcodebuild -project EasyTier.xcodeproj -scheme EasyTier -showBuildSettings || true
+
+      - name: Build app without code signing
+        run: |
+          set -euo pipefail
+          xcodebuild clean build \
+            -project EasyTier.xcodeproj \
+            -scheme EasyTier \
+            -configuration Release \
+            -sdk iphoneos \
+            BUILD_DIR="${{ env.BUILD_DIR }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            OTHER_CODE_SIGN_FLAGS="--nosign" \
+            -allowProvisioningUpdates || true
+
+      - name: Locate .app and create unsigned .ipa
+        run: |
+          set -euo pipefail
+          APP_PATH=$(find "${{ env.BUILD_DIR }}" -name "*.app" -type d | grep -E "Release.*iphoneos|Release-iphoneos|Release$" | head -n1 || true)
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find "${{ env.BUILD_DIR }}" -name "*.app" -type d | head -n1 || true)
+          fi
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app found in build directory:"
+            find "${{ env.BUILD_DIR }}" || true
+            exit 1
+          fi
+          echo "Found app at: $APP_PATH"
+          mkdir -p unsigned_payload
+          rm -rf unsigned_payload/Payload || true
+          mkdir -p unsigned_payload/Payload
+          cp -R "$APP_PATH" unsigned_payload/Payload/
+          pushd unsigned_payload
+          /usr/bin/zip -r ../EasyTier-unsigned.ipa Payload >/dev/null
+          popd
+          ls -lh EasyTier-unsigned.ipa
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyTier-unsigned-ipa
+          path: EasyTier-unsigned.ipa
+EOF
+
+git add .github/workflows/build-unsigned-ipa.yml
+git commit -m "Add workflow to build unsigned IPA"
+git push origin ci/build-unsigned-ipa
+# 然后在 GitHub 创建并合并 PR 或直接在 Actions 中手动运行该分支的 workflow
