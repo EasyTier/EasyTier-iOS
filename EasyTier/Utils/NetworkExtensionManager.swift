@@ -24,6 +24,7 @@ protocol NetworkExtensionManagerProtocol: ObservableObject {
     func disconnect() async
     func fetchRunningInfo(_ callback: @escaping ((NetworkStatus) -> Void))
     func fetchLastNetworkSettings(_ callback: @escaping ((TunnelNetworkSettingsSnapshot?) -> Void))
+    func fetchWebManagementStatus(_ callback: @escaping (WebManagementStatus?) -> Void)
     func updateName(name: String, server: String) async
     func clearCoreLog() async throws
     func exportExtensionLogs() async throws -> URL
@@ -337,6 +338,33 @@ class NetworkExtensionManager: NetworkExtensionManagerProtocol {
         }
     }
 
+    func fetchWebManagementStatus(_ callback: @escaping (WebManagementStatus?) -> Void) {
+        guard let manager,
+              let session = manager.connection as? NETunnelProviderSession,
+              session.status != .invalid else {
+            callback(nil)
+            return
+        }
+        do {
+            let message = ProviderCommand.webManagementStatus.rawValue.data(using: .utf8) ?? Data()
+            try session.sendProviderMessage(message) { data in
+                guard let data else {
+                    callback(nil)
+                    return
+                }
+                do {
+                    callback(try JSONDecoder().decode(WebManagementStatus.self, from: data))
+                } catch {
+                    Self.logger.error("fetchWebManagementStatus() decode failed: \(String(describing: error))")
+                    callback(nil)
+                }
+            }
+        } catch {
+            Self.logger.error("fetchWebManagementStatus() failed: \(String(describing: error))")
+            callback(nil)
+        }
+    }
+
     func exportExtensionLogs() async throws -> URL {
         guard let manager,
               let session = manager.connection as? NETunnelProviderSession,
@@ -464,6 +492,10 @@ class MockNEManager: NetworkExtensionManagerProtocol {
     }
 
     func fetchLastNetworkSettings(_ callback: @escaping ((TunnelNetworkSettingsSnapshot?) -> Void)) {
+        callback(nil)
+    }
+
+    func fetchWebManagementStatus(_ callback: @escaping (WebManagementStatus?) -> Void) {
         callback(nil)
     }
 

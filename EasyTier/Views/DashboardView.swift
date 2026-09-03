@@ -5,6 +5,11 @@ import os
 import TOMLKit
 import UniformTypeIdentifiers
 import EasyTierShared
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 
 private let dashboardLogger = Logger(subsystem: APP_BUNDLE_ID, category: "main.dashboard")
 private let autoSaveInterval: UInt64 = 1_200_000_000
@@ -80,6 +85,10 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     @ObservedObject var selectedSession: SelectedProfileSession
     
     @AppStorage("selectedProfileName", store: UserDefaults(suiteName: APP_GROUP_ID)) var lastSelected: String?
+    @AppStorage("connectionMode", store: UserDefaults(suiteName: APP_GROUP_ID)) var connectionModeRaw = EasyTierConnectionMode.local.rawValue
+    @AppStorage("webManagementServer", store: UserDefaults(suiteName: APP_GROUP_ID)) var webServer = ""
+    @AppStorage("webManagementHostname", store: UserDefaults(suiteName: APP_GROUP_ID)) var webHostname = ""
+    @AppStorage("webManagementMachineID", store: UserDefaults(suiteName: APP_GROUP_ID)) var webMachineID = ""
 
     @State var currentProfile = NetworkProfile()
     @State var isLocalPending = false
@@ -99,11 +108,15 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
 
     @State var errorMessage: TextItem?
     @State var showConflictAlert = false
+    @State var showResetMachineIDAlert = false
     @State var conflictConfigName: String?
     @State var conflictDetails: String = ""
 
     @State var darwinObserver: DarwinNotificationObserver? = nil
+    @State var webDarwinObserver: DarwinNotificationObserver? = nil
     @State var autoSaveTask: Task<Void, Never>? = nil
+    @State var webStatusTask: Task<Void, Never>? = nil
+    @State var webStatus: WebManagementStatus?
     
     init(manager: Manager, selectedSession: SelectedProfileSession) {
         _manager = ObservedObject(wrappedValue: manager)
@@ -126,9 +139,22 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         selectedSession.session != nil
     }
 
+    var connectionMode: EasyTierConnectionMode {
+        EasyTierConnectionMode(rawValue: connectionModeRaw) ?? .local
+    }
+
+    var connectionModeBinding: Binding<EasyTierConnectionMode> {
+        Binding(
+            get: { connectionMode },
+            set: { connectionModeRaw = $0.rawValue }
+        )
+    }
+
     var mainView: some View {
         Group {
-            if hasSelectedProfile {
+            if connectionMode == .web {
+                webManagementView
+            } else if hasSelectedProfile {
                 if isConnected {
                     StatusView(currentProfile.networkName, manager: manager)
                 } else {
@@ -153,6 +179,110 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         }
     }
 
+    @ViewBuilder
+    var webManagementView: some View {
+        if isConnected, webStatus?.status == .running {
+            StatusView(webStatus?.networkName ?? webStatus?.instanceName ?? String(localized: "web_management.title"), manager: manager)
+        } else {
+            Form {
+                if isConnected {
+                    Section("web_management.title") {
+                        LabeledContent("web_management.status.label", value: webStatusLabel)
+                        if let instanceName = webStatus?.instanceName, !instanceName.isEmpty {
+                            LabeledContent("web_management.instance", value: instanceName)
+                        }
+                        if let error = webStatus?.error, !error.isEmpty {
+                            Text(error).foregroundStyle(.red)
+                        }
+                    }
+                } else {
+                    Section("web_management.title") {
+                        TextField("web_management.server.placeholder", text: $webServer)
+                            .adaptiveNoTextInputAutocapitalization()
+                            .autocorrectionDisabled()
+                        TextField("hostname", text: $webHostname)
+                    }
+                    Section("web_management.machine_id") {
+                        LabeledContent {
+                            Button {
+                                copyMachineID()
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                            }
+                            .help("web_management.machine_id.copy")
+                        } label: {
+                            Text(webMachineID).font(.system(.caption, design: .monospaced))
+                                .textSelection(.enabled)
+                        }
+                        Button("web_management.machine_id.reset", role: .destructive) {
+                            showResetMachineIDAlert = true
+                        }
+                        .disabled(isPending || isConnected)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+        }
+    }
+
+    var webStatusLabel: String {
+        switch webStatus?.status {
+        case .connectingServer: return String(localized: "web_management.status.connecting_server")
+        case .waitingConfig: return String(localized: "web_management.status.waiting_config")
+        case .running: return String(localized: "running")
+        case .error: return String(localized: "common.error")
+        case nil: return String(localized: "web_management.status.connecting_server")
+        }
+    }
+
+    func ensureWebIdentity() {
+        if webMachineID.isEmpty {
+            webMachineID = UUID().uuidString.lowercased()
+        }
+        if webHostname.isEmpty {
+#if os(iOS)
+            webHostname = UIDevice.current.name
+#else
+            webHostname = Host.current().localizedName ?? "Mac"
+#endif
+        }
+    }
+
+    func copyMachineID() {
+#if os(iOS)
+        UIPasteboard.general.string = webMachineID
+#else
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(webMachineID, forType: .string)
+#endif
+    }
+
+    func saveWebOptions() {
+        ensureWebIdentity()
+        var options = EasyTierOptions()
+        options.mode = .web
+        options.webManagement = WebManagementOptions(
+            server: webServer.trimmingCharacters(in: .whitespacesAndNewlines),
+            machineID: webMachineID,
+            hostname: webHostname.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        if let raw = UserDefaults.standard.string(forKey: "logLevel"),
+           let level = LogLevel(rawValue: raw) {
+            options.logLevel = level
+        }
+        NetworkExtensionManager.saveOptions(options)
+    }
+
+    func refreshWebStatus() {
+        guard connectionMode == .web, isConnected else {
+            webStatus = nil
+            return
+        }
+        manager.fetchWebManagementStatus { status in
+            DispatchQueue.main.async { self.webStatus = status }
+        }
+    }
+
     func createProfile() {
         let baseName = newNetworkInput.isEmpty ? String(localized: "new_network") : newNetworkInput
         guard let sanitizedName = availableConfigName(baseName) else { return }
@@ -173,6 +303,14 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     var manageSheet: some View {
         NavigationStack {
             Form {
+                Section("web_management.connection_mode") {
+                    Picker("web_management.connection_mode", selection: connectionModeBinding) {
+                        Text("web_management.mode.local").tag(EasyTierConnectionMode.local)
+                        Text("web_management.title").tag(EasyTierConnectionMode.web)
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(isPending || isConnected)
+                }
                 Section("network") {
                     let profiles = ProfileStore.loadIndexOrEmpty().map{ IdenticalTextItem($0) }
                     ForEach(profiles) { item in
@@ -353,7 +491,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
     var body: some View {
         NavigationStack {
             mainView
-                .navigationTitle(selectedSession.session?.name ?? String(localized: "select_network"))
+                .navigationTitle(connectionMode == .web ? String(localized: "web_management.title") : (selectedSession.session?.name ?? String(localized: "select_network")))
             .toolbar {
                 ToolbarItem(placement: ToolbarLeading) {
                     Button("select_network", systemImage: "chevron.up.chevron.down") {
@@ -369,7 +507,14 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             if isConnected {
                                 await manager.disconnect()
                             } else {
-                                if await saveProfile() {
+                                let ready: Bool
+                                if connectionMode == .web {
+                                    saveWebOptions()
+                                    ready = true
+                                } else {
+                                    ready = await saveProfile()
+                                }
+                                if ready {
                                     do {
                                         try await manager.connect()
                                     } catch {
@@ -388,7 +533,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                         .labelStyle(.titleAndIcon)
                         .padding(10)
                     }
-                    .disabled((!hasSelectedProfile && !isConnected) || manager.isLoading || isPending)
+                    .disabled((connectionMode == .local && !hasSelectedProfile && !isConnected) || (connectionMode == .web && webServer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isConnected) || manager.isLoading || isPending)
 #if os(iOS)
                     .buttonStyle(.plain)
 #endif
@@ -400,6 +545,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         .onAppear {
             Task { @MainActor in
                 try? await manager.load()
+                ensureWebIdentity()
                 if let session = selectedSession.session {
                     currentProfile = session.document.profile
                 } else if let lastSelected {
@@ -417,13 +563,35 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                     }
                 }
             }
+            webDarwinObserver = DarwinNotificationObserver(name: "\(APP_BUNDLE_ID).web-management") {
+                DispatchQueue.main.async { self.refreshWebStatus() }
+            }
+            webStatusTask?.cancel()
+            webStatusTask = Task { @MainActor in
+                while !Task.isCancelled {
+                    refreshWebStatus()
+                    try? await Task.sleep(for: .seconds(2))
+                }
+            }
         }
         .onChange(of: scenePhase) { newPhase in
             guard [.inactive, .background].contains(newPhase) else { return }
             Task { @MainActor in
                 autoSaveTask?.cancel()
                 autoSaveTask = nil
-                await saveProfile()
+                if connectionMode == .local {
+                    await saveProfile()
+                } else {
+                    saveWebOptions()
+                }
+            }
+        }
+        .onChange(of: connectionModeRaw) { _ in
+            guard !isConnected else { return }
+            if connectionMode == .web {
+                saveWebOptions()
+            } else {
+                Task { @MainActor in _ = await saveProfile() }
             }
         }
         .onChange(of: selectedSession.session) { session in
@@ -439,10 +607,17 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
         .onDisappear {
             // Release observer to remove registration
             darwinObserver = nil
+            webDarwinObserver = nil
+            webStatusTask?.cancel()
+            webStatusTask = nil
             autoSaveTask?.cancel()
             autoSaveTask = nil
             Task { @MainActor in
-                await saveProfile()
+                if connectionMode == .local {
+                    await saveProfile()
+                } else {
+                    saveWebOptions()
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .profileDocumentConflictDetected)) { notification in
@@ -505,6 +680,16 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
             } else {
                 Text(conflictDetails)
             }
+        }
+        .alert("web_management.machine_id.reset_confirm_title", isPresented: $showResetMachineIDAlert) {
+            Button("common.cancel", role: .cancel) {}
+            Button("reset", role: .destructive) {
+                guard !isConnected else { return }
+                webMachineID = UUID().uuidString.lowercased()
+                saveWebOptions()
+            }
+        } message: {
+            Text("web_management.machine_id.reset_confirm_message")
         }
     }
     

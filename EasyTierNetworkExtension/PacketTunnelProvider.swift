@@ -51,12 +51,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     private var lastOptions: EasyTierOptions?
     private var lastAppliedSettings: TunnelNetworkSettingsSnapshot?
     private var needReapplySettings: Bool = false
+    private var webInstanceGeneration: UInt64?
+    private var forceTunRebindGeneration: UInt64?
+    private var webStartupReady = false
+    private var pendingWebEvents: [WebManagementEvent] = []
 
     private func resetTunnelSessionState() {
         lastOptions = nil
         lastAppliedSettings = nil
         needReapplySettings = false
         settingsApplyGeneration = nil
+        webInstanceGeneration = nil
+        forceTunRebindGeneration = nil
+        webStartupReady = false
+        pendingWebEvents.removeAll()
         reasserting = false
     }
 
@@ -212,7 +220,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
             let settings = buildSettings(options)
             let newSnapshot = self.snapshotSettings(settings)
-            if newSnapshot == self.lastAppliedSettings {
+            let forceTunRebind = self.forceTunRebindGeneration != nil
+            if newSnapshot == self.lastAppliedSettings && !forceTunRebind {
                 logger.warning("applyNetworkSettings() new settings are exactly the same as last applied, skipping")
                 self.finishNetworkSettingsApply(
                     generation: generation,
@@ -223,7 +232,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 return
             }
 
-            let needSetTunFd = self.shouldUpdateTunFd(old: self.lastAppliedSettings, new: newSnapshot)
+            let needSetTunFd = forceTunRebind || self.shouldUpdateTunFd(old: self.lastAppliedSettings, new: newSnapshot)
             logger.info("applyNetworkSettings() need set tunfd: \(needSetTunFd), settings: \(settings, privacy: .public)")
             self.setTunnelNetworkSettings(settings) { [weak self] error in
                 guard let self else {
@@ -290,12 +299,148 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                         }
                     }
                     logger.info("applyNetworkSettings() settings applied")
+                    self.forceTunRebindGeneration = nil
                     self.finishNetworkSettingsApply(
                         generation: generation,
                         snapshot: newSnapshot,
                         error: nil,
                         completion: completion
                     )
+                }
+            }
+        }
+    }
+
+    private func fetchWebManagementStatus() throws -> WebManagementStatus {
+        var jsonPtr: UnsafePointer<CChar>? = nil
+        var errPtr: UnsafePointer<CChar>? = nil
+        guard get_config_server_status(&jsonPtr, &errPtr) == 0,
+              let json = extractRustString(jsonPtr),
+              let data = json.data(using: .utf8) else {
+            throw extractRustString(errPtr) ?? "cannot get Web management status"
+        }
+        return try JSONDecoder().decode(WebManagementStatus.self, from: data)
+    }
+
+    private func acknowledgeWebSetup(generation: UInt64, error: Error?) {
+        if let error {
+            error.localizedDescription.withCString {
+                _ = complete_config_server_instance_setup(generation, false, $0)
+            }
+        } else {
+            _ = complete_config_server_instance_setup(generation, true, nil)
+        }
+    }
+
+    private func applyEmptyWebSettings(completion: @escaping (Error?) -> Void) {
+        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
+        setTunnelNetworkSettings(settings) { [weak self] error in
+            self?.settingsQueue.async {
+                if error == nil {
+                    self?.lastAppliedSettings = self?.snapshotSettings(settings)
+                    self?.lastOptions = nil
+                    self?.forceTunRebindGeneration = nil
+                }
+                completion(error)
+            }
+        }
+    }
+
+    private func handleWebManagementEvent(_ event: WebManagementEvent) {
+        settingsQueue.async { [weak self] in
+            guard let self, self.activeTunnelGeneration != nil else { return }
+            guard self.webStartupReady else {
+                self.pendingWebEvents.append(event)
+                return
+            }
+            self.postDarwinNotification("\(APP_BUNDLE_ID).web-management")
+            switch event.event {
+            case "run":
+                do {
+                    let status = try self.fetchWebManagementStatus()
+                    guard let options = status.options else {
+                        throw "Web instance has no tunnel options"
+                    }
+                    self.webInstanceGeneration = event.generation
+                    self.forceTunRebindGeneration = event.generation
+                    self.lastOptions = options.asEasyTierOptions(logLevel: self.lastOptions?.logLevel ?? .info)
+                    guard let tunnelGeneration = self.activeTunnelGeneration else {
+                        throw "tunnel session is no longer active"
+                    }
+                    self.applyNetworkSettings(generation: tunnelGeneration) { error in
+                        self.acknowledgeWebSetup(generation: event.generation, error: error)
+                        if let error {
+                            self.notifyHostAppError(error.localizedDescription)
+                            self.cancelTunnelWithError(error)
+                        } else {
+                            self.postDarwinNotification("\(APP_BUNDLE_ID).web-management")
+                        }
+                    }
+                } catch {
+                    self.acknowledgeWebSetup(generation: event.generation, error: error)
+                    self.notifyHostAppError(error.localizedDescription)
+                    self.cancelTunnelWithError(error)
+                }
+            case "delete":
+                self.webInstanceGeneration = event.generation
+                self.applyEmptyWebSettings { error in
+                    if let error {
+                        self.notifyHostAppError(error.localizedDescription)
+                        self.cancelTunnelWithError(error)
+                    } else {
+                        self.postDarwinNotification("\(APP_BUNDLE_ID).web-management")
+                    }
+                }
+            default:
+                logger.warning("unknown Web management event: \(event.event, privacy: .public)")
+            }
+        }
+    }
+
+    private func startWebManagement(
+        options: EasyTierOptions,
+        generation: UInt64
+    ) {
+        guard let web = options.webManagement,
+              !web.server.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !web.machineID.isEmpty else {
+            failStart(generation: generation, error: "Web management options are incomplete", stopNetwork: false)
+            return
+        }
+        registerRunningInfoCallback()
+        let callback: @convention(c) (UnsafePointer<CChar>?) -> Void = { pointer in
+            guard let pointer,
+                  let data = String(cString: pointer).data(using: .utf8),
+                  let event = try? JSONDecoder().decode(WebManagementEvent.self, from: data) else {
+                return
+            }
+            PacketTunnelProvider.current?.handleWebManagementEvent(event)
+        }
+        var errPtr: UnsafePointer<CChar>? = nil
+        let result = web.server.withCString { server in
+            web.hostname.withCString { hostname in
+                web.machineID.withCString { machineID in
+                    start_config_server_client(server, hostname, machineID, callback, &errPtr)
+                }
+            }
+        }
+        guard result == 0 else {
+            let message = extractRustString(errPtr) ?? "cannot start Web management"
+            notifyHostAppError(message)
+            failStart(generation: generation, error: message, stopNetwork: false)
+            return
+        }
+        applyEmptyWebSettings { error in
+            if let error {
+                self.failStart(generation: generation, error: error, stopNetwork: true)
+            } else {
+                self.webStartupReady = true
+                let pendingEvents = self.pendingWebEvents
+                self.pendingWebEvents.removeAll()
+                self.completeStart(generation: generation, error: nil)
+                self.postDarwinNotification("\(APP_BUNDLE_ID).web-management")
+                for event in pendingEvents {
+                    self.handleWebManagementEvent(event)
                 }
             }
         }
@@ -364,6 +509,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             self.lastOptions = options
 
             initRustLogger(level: options.logLevel)
+            if options.mode == .web {
+                self.startWebManagement(options: options, generation: generation)
+                return
+            }
             var errPtr: UnsafePointer<CChar>? = nil
             let ret = options.config.withCString { strPtr in
                 return run_network_instance(strPtr, &errPtr)
@@ -470,6 +619,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                         logger.error("handleAppMessage() encode settings failed: \(error, privacy: .public)")
                         completionHandler(nil)
                     }
+                }
+            case .webManagementStatus:
+                do {
+                    let status = try fetchWebManagementStatus()
+                    completionHandler(try JSONEncoder().encode(status))
+                } catch {
+                    logger.error("handleAppMessage() Web status failed: \(error.localizedDescription, privacy: .public)")
+                    completionHandler(nil)
                 }
             }
             return
