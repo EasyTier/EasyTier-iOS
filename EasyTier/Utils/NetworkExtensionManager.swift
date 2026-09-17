@@ -297,10 +297,12 @@ class NetworkExtensionManager: NetworkExtensionManagerProtocol {
                 do {
                     info = try JSONDecoder().decode(NetworkStatus.self, from: data)
                 } catch {
-                    Self.logger.error("fetchRunningInfo() json deserialize failed: \(String(describing: error))")
+                    Self.logger.error("fetchRunningInfo() json deserialize failed: \(String(describing: error), privacy: .public)")
                     return
                 }
-                callback(info)
+                DispatchQueue.main.async {
+                    callback(info)
+                }
             }
         } catch {
             Self.logger.error("fetchRunningInfo() failed: \(String(describing: error))")
