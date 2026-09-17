@@ -6131,13 +6131,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Server URL or token"
+            "value" : "Web Server"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "服务器 URL 或短令牌"
+            "value" : "Web 服务器"
           }
         }
       }
