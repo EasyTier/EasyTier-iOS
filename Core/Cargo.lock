@@ -1310,6 +1310,7 @@ dependencies = [
  "tracing",
  "tracing-oslog",
  "tracing-subscriber",
+ "url",
  "uuid",
 ]
 

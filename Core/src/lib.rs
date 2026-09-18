@@ -15,11 +15,9 @@ use easytier::{
         global_ctx::GlobalCtxEvent,
         MachineIdOptions,
     },
-    instance::factory::{
-        native_instance_manager_with_runtime, native_process_management,
-        subscribe_native_instance_event, NativeInstanceManager, NativeProcessManagement,
-    },
-    web_client::{parse_config_server_endpoint, run_web_client, WebClient, WebClientHooks},
+    instance_manager::NetworkInstanceManager,
+    tunnel::TunnelScheme,
+    web_client::{run_web_client, WebClient, WebClientHooks},
 };
 use once_cell::sync::Lazy;
 use serde::Serialize;
@@ -34,8 +32,7 @@ type ConfigServerCallback = Option<extern "C" fn(*const c_char)>;
 
 struct CoreContext {
     runtime: Runtime,
-    manager: Arc<NativeInstanceManager>,
-    local_management: NativeProcessManagement,
+    manager: Arc<NetworkInstanceManager>,
 }
 
 impl CoreContext {
@@ -44,15 +41,8 @@ impl CoreContext {
             .enable_all()
             .build()
             .expect("EasyTier runtime");
-        let manager = Arc::new(native_instance_manager_with_runtime(
-            runtime.handle().clone(),
-        ));
-        let local_management = native_process_management(manager.clone(), Arc::new(()));
-        Self {
-            runtime,
-            manager,
-            local_management,
-        }
+        let manager = Arc::new(NetworkInstanceManager::new());
+        Self { runtime, manager }
     }
 }
 
@@ -82,7 +72,7 @@ struct InstanceMetadata {
 }
 
 struct AppleWebHooks {
-    manager: Arc<NativeInstanceManager>,
+    manager: Arc<NetworkInstanceManager>,
     callback: ConfigServerCallback,
     active: Mutex<Option<InstanceMetadata>>,
     pending: Mutex<Option<PendingSetup>>,
@@ -92,7 +82,7 @@ struct AppleWebHooks {
 }
 
 impl AppleWebHooks {
-    fn new(manager: Arc<NativeInstanceManager>, callback: ConfigServerCallback) -> Self {
+    fn new(manager: Arc<NetworkInstanceManager>, callback: ConfigServerCallback) -> Self {
         Self {
             manager,
             callback,
@@ -175,18 +165,16 @@ impl AppleWebHooks {
     }
 
     fn metadata(&self, id: Uuid, generation: u64) -> Result<InstanceMetadata, String> {
-        let instance = self
-            .manager
-            .instance(id)
-            .ok_or_else(|| format!("instance {id} not found"))?;
-        let config = self
-            .manager
-            .config(id)
-            .ok_or_else(|| format!("config for instance {id} not found"))?;
         Ok(InstanceMetadata {
             instance_id: id,
-            instance_name: instance.instance_name().to_string(),
-            network_name: config.get_network_identity().network_name,
+            instance_name: self
+                .manager
+                .get_instance_name(&id)
+                .ok_or_else(|| format!("instance {id} not found"))?,
+            network_name: self
+                .manager
+                .get_network_name(&id)
+                .ok_or_else(|| format!("network for instance {id} not found"))?,
             generation,
         })
     }
@@ -194,10 +182,6 @@ impl AppleWebHooks {
 
 #[async_trait::async_trait]
 impl WebClientHooks for AppleWebHooks {
-    fn manages_remote_config_instances(&self) -> bool {
-        true
-    }
-
     async fn pre_run_network_instance(&self, config: &TomlConfigLoader) -> Result<(), String> {
         if self.stopping.load(Ordering::Acquire) {
             return Err("config server client is stopping".to_string());
@@ -361,15 +345,42 @@ fn normalize_config_server_endpoint(input: &str) -> Result<String, String> {
         }
         format!("udp://config-server.easytier.cn:22020/{input}")
     };
-    parse_config_server_endpoint(&endpoint).map_err(|error| error.to_string())?;
+    let url = url::Url::parse(&endpoint).map_err(|error| error.to_string())?;
+    TunnelScheme::try_from(&url)
+        .map_err(|_| format!("unsupported config server scheme: {}", url.scheme()))?;
+    if url
+        .path_segments()
+        .and_then(|mut parts| parts.next_back())
+        .unwrap_or_default()
+        .is_empty()
+    {
+        return Err("config server token is empty".to_string());
+    }
     Ok(endpoint)
 }
 
+// Read the live config through the API exposed by EasyTier 2.6.4.
+fn instance_config(id: Uuid) -> Option<TomlConfigLoader> {
+    let service = CONTEXT.manager.get_instance_service(&id)?;
+    CONTEXT.runtime.block_on(async {
+        service
+            .get_config_service()
+            .get_config(Default::default(), Default::default())
+            .await
+            .ok()?
+            .config?
+            .gen_config()
+            .ok()
+    })
+}
+
 fn spawn_instance_event_forwarder(id: Uuid, notify_stop: bool) {
-    let Some(instance) = CONTEXT.manager.instance(id) else {
-        return;
-    };
-    let Some(mut events) = subscribe_native_instance_event(&instance) else {
+    let Some(mut events) = CONTEXT
+        .manager
+        .iter()
+        .find(|instance| *instance.key() == id)
+        .and_then(|instance| instance.subscribe_event())
+    else {
         return;
     };
     CONTEXT.runtime.spawn(async move {
@@ -490,11 +501,13 @@ pub extern "C" fn run_network_instance(
             }
             CONTEXT
                 .runtime
-                .block_on(
-                    CONTEXT
-                        .local_management
-                        .run_owned_network_instance(config, ConfigFileControl::STATIC_CONFIG),
-                )
+                .block_on(async {
+                    CONTEXT.manager.run_network_instance(
+                        config,
+                        false,
+                        ConfigFileControl::STATIC_CONFIG,
+                    )
+                })
                 .map_err(|error| error.to_string())?;
             *mode = RunMode::Local(id);
             spawn_instance_event_forwarder(id, true);
@@ -661,7 +674,7 @@ pub extern "C" fn get_config_server_status(
                 .clone();
             let options = active
                 .as_ref()
-                .and_then(|metadata| CONTEXT.manager.config(metadata.instance_id))
+                .and_then(|metadata| instance_config(metadata.instance_id))
                 .map(|config| {
                     let flags = config.get_flags();
                     TunnelOptions {
@@ -717,7 +730,7 @@ pub extern "C" fn set_tun_fd(fd: c_int, err_msg: *mut *const c_char) -> c_int {
         active_instance_id().and_then(|id| {
             CONTEXT
                 .manager
-                .attach_tun_fd(id, fd)
+                .set_tun_fd(&id, fd)
                 .map_err(|error| error.to_string())
         }),
         err_msg,
@@ -735,9 +748,7 @@ pub extern "C" fn stop_network_instance() -> c_int {
         RunMode::Local(id) => vec![*id],
         RunMode::Web(managed) => managed.hooks.stop(),
     };
-    let result = CONTEXT
-        .runtime
-        .block_on(CONTEXT.local_management.delete_owned_network_instances(ids));
+    let result = CONTEXT.manager.delete_network_instance(ids);
     drop(previous);
     if result.is_ok() {
         0
@@ -818,8 +829,9 @@ pub extern "C" fn get_latest_error_msg(
             let id = active_instance_id()?;
             let latest = CONTEXT
                 .manager
-                .instance(id)
-                .and_then(|instance| instance.latest_error());
+                .iter()
+                .find(|instance| *instance.key() == id)
+                .and_then(|instance| instance.get_latest_error_msg());
             unsafe {
                 *msg = match latest {
                     Some(value) => CString::new(value)
@@ -850,6 +862,20 @@ mod tests {
         );
         assert!(normalize_config_server_endpoint("").is_err());
         assert!(normalize_config_server_endpoint("bad/token").is_err());
+    }
+
+    #[test]
+    fn rejects_unsupported_scheme_and_missing_token() {
+        for endpoint in [
+            "https://example.com/token",
+            "udp://127.0.0.1:22020",
+            "udp://127.0.0.1:22020/",
+        ] {
+            assert!(
+                normalize_config_server_endpoint(endpoint).is_err(),
+                "{endpoint}"
+            );
+        }
     }
 
     #[test]
