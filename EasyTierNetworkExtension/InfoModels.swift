@@ -10,6 +10,15 @@ struct RunningInfo: Decodable {
     }
 }
 
+extension RunningInfo {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        myNodeInfo = try container.decodeIfPresent(RunningNodeInfo.self, forKey: .myNodeInfo)
+        // Protobuf JSON omits the route list when no peers are known yet.
+        routes = try container.decodeIfPresent([RunningRoute].self, forKey: .routes) ?? []
+    }
+}
+
 struct RunningNodeInfo: Decodable {
     var virtualIPv4: RunningIPv4CIDR?
 
@@ -23,6 +32,12 @@ struct RunningRoute: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case proxyCIDRs = "proxy_cidrs"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Protobuf JSON omits empty lists for peers without advertised subnets.
+        proxyCIDRs = try container.decodeIfPresent([String].self, forKey: .proxyCIDRs) ?? []
     }
 }
 
@@ -82,4 +97,21 @@ struct RunningIPv4Addr: Decodable, Hashable {
     }
 }
 
+// Restore omitted protobuf scalar defaults, matching the main app's status models.
+extension RunningIPv4CIDR {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        address = try container.decode(RunningIPv4Addr.self, forKey: .address)
+        networkLength = try container.decodeIfPresent(Int.self, forKey: .networkLength) ?? 0
+    }
+}
+
+extension RunningIPv4Addr {
+    private enum CodingKeys: String, CodingKey { case addr }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        addr = try container.decodeIfPresent(UInt32.self, forKey: .addr) ?? 0
+    }
+}
 
