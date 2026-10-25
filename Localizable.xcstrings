@@ -76,13 +76,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Github Repository"
+            "value" : "GitHub Repository"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Github 仓库"
+            "value" : "GitHub 仓库"
           }
         }
       }
