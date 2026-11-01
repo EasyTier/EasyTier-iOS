@@ -527,8 +527,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                             isConnected ? "vpn_disconnect" : "vpn_connect",
                             systemImage: isConnected ? "cable.connector.slash" : "cable.connector"
                         )
-                        .labelStyle(.titleAndIcon)
-                        .padding(10)
+                        .adaptiveToolbarLabelStyle(padding: 10)
                     }
                     .disabled((connectionMode == .local && !hasSelectedProfile && !isConnected) || (connectionMode == .web && webServer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isConnected) || manager.isLoading || isPending)
 #if os(iOS)
@@ -537,6 +536,7 @@ struct DashboardView<Manager: NetworkExtensionManagerProtocol>: View {
                     .foregroundStyle(isConnected ? Color.red : Color.accentColor)
                     .animation(.interactiveSpring, value: [isConnected, isPending])
                 }
+                .adaptiveVerticalPreferred()
             }
         }
         .onAppear {
