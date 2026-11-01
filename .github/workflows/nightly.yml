@@ -22,7 +22,7 @@ env:
 jobs:
   build-and-release:
     name: Build and publish TrollStore IPA
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 90
 
     steps:
@@ -38,7 +38,7 @@ jobs:
           echo "PACKAGE_PATH=${RUNNER_TEMP}/package" >> "${GITHUB_ENV}"
           echo "EXPORT_PATH=${RUNNER_TEMP}/export" >> "${GITHUB_ENV}"
 
-          sudo xcode-select --switch /Applications/Xcode_26.6.app/Contents/Developer
+          sudo xcode-select --switch /Applications/Xcode_27.2.app/Contents/Developer
           xcodebuild -version
 
           rustup target add aarch64-apple-ios
