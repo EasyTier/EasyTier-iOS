@@ -166,15 +166,17 @@ struct StatusView<Manager: NetworkExtensionManagerProtocol>: View {
                     peerInfo
                 }
             }
-            .frame(minWidth: columnMinWidth, maxWidth: columnMaxWidth)
             .formStyle(.grouped)
+            .columnGutter(.trailing)
+            .frame(minWidth: columnMinWidth, maxWidth: columnMaxWidth)
             Form {
                 Section("event_log") {
                     TimelineLogPanel(events: status?.events ?? [])
                 }
             }
-            .frame(minWidth: columnMinWidth)
             .formStyle(.grouped)
+            .columnGutter(.leading)
+            .frame(minWidth: columnMinWidth)
         }
     }
     
