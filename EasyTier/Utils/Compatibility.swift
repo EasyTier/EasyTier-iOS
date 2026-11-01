@@ -69,11 +69,15 @@ extension ToolbarContent {
     /// Prefers placing the item in the vertical bar (e.g. on iPhone Duo) when one is present.
     @ToolbarContentBuilder
     func adaptiveVerticalPreferred() -> some ToolbarContent {
-        if #available(iOS 27.1, macOS 27.1, *) {
+#if os(iOS)
+        if #available(iOS 27.1, *) {
             self.axisBehavior(.verticalPreferred)
         } else {
             self
         }
+#else
+        self
+#endif
     }
 }
 
